@@ -91,7 +91,7 @@ typedef int32_t  s32_t;
  * Global Configuration networking
  */
 typedef unsigned int uip_stats_t;
-#define RIMEADDR_CONF_SIZE          8
+#define LINKADDR_CONF_SIZE          8
 
 #define NETSTACK_CONF_RADIO         rf2xx_driver
 /* Max payload of rf2xx is 125 bytes (128 -1 for length -2 for CRC) */
@@ -139,8 +139,8 @@ typedef unsigned int uip_stats_t;
 /*
  * Network setup for Rime
  */
-// Rime needs default RIMEADDR_SIZE 2
-#undef RIMEADDR_CONF_SIZE
+// Rime needs default LINKADDR_SIZE 2
+#undef LINKADDR_CONF_SIZE
 #define NETSTACK_CONF_NETWORK rime_driver
 #define NETSTACK_CONF_MAC csma_driver
 

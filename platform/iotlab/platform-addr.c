@@ -4,7 +4,7 @@
 
 void set_rime_addr()
 {
-#if RIMEADDR_SIZE == 2
+#if LINKADDR_SIZE == 2
     uint16_t short_uid = platform_uid();
     linkaddr_node_addr.u8[0] = 0xff & (short_uid >> 8);
     linkaddr_node_addr.u8[1] = 0xff & (short_uid);

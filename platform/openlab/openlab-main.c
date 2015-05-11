@@ -62,20 +62,20 @@ extern void set_rime_addr();  // defined by specific platform
 /*---------------------------------------------------------------------------*/
 void print_rime_addr()
 {
-#if RIMEADDR_SIZE == 8
-    log_debug("Rime Addr: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-            rimeaddr_node_addr.u8[0],
-            rimeaddr_node_addr.u8[1],
-            rimeaddr_node_addr.u8[2],
-            rimeaddr_node_addr.u8[3],
-            rimeaddr_node_addr.u8[4],
-            rimeaddr_node_addr.u8[5],
-            rimeaddr_node_addr.u8[6],
-            rimeaddr_node_addr.u8[7]);
+#if LINKADDR_SIZE == 8
+    log_debug("Link Addr: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+            linkaddr_node_addr.u8[0],
+            linkaddr_node_addr.u8[1],
+            linkaddr_node_addr.u8[2],
+            linkaddr_node_addr.u8[3],
+            linkaddr_node_addr.u8[4],
+            linkaddr_node_addr.u8[5],
+            linkaddr_node_addr.u8[6],
+            linkaddr_node_addr.u8[7]);
 #else
-    log_debug("Rime Addr: %02x:%02x",
-            rimeaddr_node_addr.u8[0],
-            rimeaddr_node_addr.u8[1]);
+    log_debug("Link Addr: %02x:%02x",
+            linkaddr_node_addr.u8[0],
+            linkaddr_node_addr.u8[1]);
 #endif
 }
 
@@ -144,7 +144,7 @@ int main()
     print_rime_addr();
 
 #if UIP_CONF_IPV6
-    memcpy(&uip_lladdr.addr, &rimeaddr_node_addr, sizeof(uip_lladdr.addr));
+    memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
     process_start(&tcpip_process, NULL);
 
     #if VIZTOOL_CONF_ON
