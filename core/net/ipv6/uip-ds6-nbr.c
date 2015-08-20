@@ -111,7 +111,7 @@ uip_ds6_nbr_add(const uip_ipaddr_t *ipaddr, const uip_lladdr_t *lladdr,
 }
 
 /*---------------------------------------------------------------------------*/
-void
+int
 uip_ds6_nbr_rm(uip_ds6_nbr_t *nbr)
 {
   if(nbr != NULL) {
@@ -119,9 +119,9 @@ uip_ds6_nbr_rm(uip_ds6_nbr_t *nbr)
     uip_packetqueue_free(&nbr->packethandle);
 #endif /* UIP_CONF_IPV6_QUEUE_PKT */
     NEIGHBOR_STATE_CHANGED(nbr);
-    nbr_table_remove(ds6_neighbors, nbr);
+    return nbr_table_remove(ds6_neighbors, nbr);
   }
-  return;
+  return 0;
 }
 
 /*---------------------------------------------------------------------------*/
