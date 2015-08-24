@@ -51,7 +51,7 @@ make sender-node.cooja TARGET=cooja</commands>
       <description>RPL root</description>
       <source>[CONTIKI_DIR]/regression-tests/12-rpl/code/root-node.c</source>
       <commands>make TARGET=cooja clean
-make root-node.cooja TARGET=cooja</commands>
+make root-node.cooja DEFINES=UIP_CONF_MAX_ROUTES=400 TARGET=cooja</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
       <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiVib</moteinterface>
