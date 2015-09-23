@@ -661,6 +661,7 @@ dao_input(void)
   int learned_from;
   rpl_parent_t *parent;
   uip_ds6_nbr_t *nbr;
+  int is_root;
 
   prefixlen = 0;
   parent = NULL;
@@ -693,6 +694,8 @@ dao_input(void)
   sequence = buffer[pos++];
 
   dag = instance->current_dag;
+  is_root = (dag->rank == ROOT_RANK(instance));
+
   /* Is the DAG ID present? */
   if(flags & RPL_DAO_D_FLAG) {
     if(memcmp(&dag->dag_id, &buffer[pos], sizeof(dag->dag_id))) {
@@ -827,7 +830,8 @@ dao_input(void)
     if(flags & RPL_DAO_K_FLAG) {
       /* signal the failure to add the node */
       dao_ack_output(instance, &dao_sender_addr, sequence,
-             RPL_DAO_ACK_UNABLE_TO_ACCEPT);
+		     is_root ? RPL_DAO_ACK_UNABLE_TO_ACCEPT_ROOT :
+		     RPL_DAO_ACK_UNABLE_TO_ACCEPT);
     }
     goto discard;
   }
@@ -836,11 +840,11 @@ dao_input(void)
   if(rep == NULL) {
     RPL_STAT(rpl_stats.mem_overflows++);
     PRINTF("RPL: Could not add a route after receiving a DAO\n");
-
     if(flags & RPL_DAO_K_FLAG) {
       /* signal the failure to add the node */
       dao_ack_output(instance, &dao_sender_addr, sequence,
-             RPL_DAO_ACK_UNABLE_TO_ACCEPT);
+		     is_root ? RPL_DAO_ACK_UNABLE_TO_ACCEPT_ROOT :
+		     RPL_DAO_ACK_UNABLE_TO_ACCEPT);
     }
     goto discard;
   }
