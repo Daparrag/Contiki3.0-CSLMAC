@@ -5,5 +5,5 @@
 #define UIP_CONF_MAX_ROUTES                      8
 #define NBR_TABLE_CONF_MAX_NEIGHBORS             8
 
-#define RPL_CONF_DEFAULT_LIFETIME_UNIT           60
-#define RPL_CONF_DEFAULT_LIFETIME                3
+/* #define RPL_CONF_DEFAULT_LIFETIME_UNIT           60 */
+/* #define RPL_CONF_DEFAULT_LIFETIME                10 */
