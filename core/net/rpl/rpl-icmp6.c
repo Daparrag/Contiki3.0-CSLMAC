@@ -793,14 +793,14 @@ dao_input(void)
       RPL_ROUTE_SET_NOPATH_RECEIVED(rep);
       rep->state.lifetime = DAO_EXPIRATION_TIMEOUT;
 
-      /* We forward the incoming no-path DAO to our parent, if we have
+      /* We forward the incoming No-Path DAO to our parent, if we have
          one. */
       if(dag->preferred_parent != NULL &&
          rpl_get_parent_ipaddr(dag->preferred_parent) != NULL) {
         uint8_t out_seq;
         out_seq = prepare_for_dao_fwd(sequence, rep);
 
-        PRINTF("RPL: Forwarding no-path DAO to parent - out_seq:%d",
+        PRINTF("RPL: Forwarding No-path DAO to parent - out_seq:%d",
 	       out_seq);
         PRINT6ADDR(rpl_get_parent_ipaddr(dag->preferred_parent));
         PRINTF("\n");
@@ -1079,7 +1079,7 @@ dao_output_target_seq(rpl_parent_t *parent, uip_ipaddr_t *prefix,
   buffer[pos++] = 0; /* path seq - ignored */
   buffer[pos++] = lifetime;
 
-  PRINTF("RPL: Sending DAO with prefix ");
+  PRINTF("RPL: Sending %sDAO with prefix ", lifetime == RPL_ZERO_LIFETIME ? "No-Path " : "");
   PRINT6ADDR(prefix);
   PRINTF(" to ");
   PRINT6ADDR(rpl_get_parent_ipaddr(parent));
