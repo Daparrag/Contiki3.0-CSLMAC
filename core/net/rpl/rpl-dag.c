@@ -1225,26 +1225,10 @@ rpl_recalculate_ranks(void)
 int
 rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
 {
-  int return_value;
-
 #if DEBUG
   rpl_rank_t old_rank;
   old_rank = instance->current_dag->rank;
 #endif /* DEBUG */
-
-  return_value = 1;
-
-  if(!acceptable_rank(p->dag, p->rank)) {
-    /* The candidate parent is no longer valid: the rank increase resulting
-       from the choice of it as a parent would be too high. */
-    PRINTF("RPL: Unacceptable rank %u\n", (unsigned)p->rank);
-    rpl_nullify_parent(p);
-    if(p != instance->current_dag->preferred_parent) {
-      return 0;
-    } else {
-      return_value = 0;
-    }
-  }
 
   if(rpl_select_dag(instance, p->dag) == NULL) {
     /* No suitable parent; trigger a local repair. */
@@ -1268,7 +1252,7 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
   }
 #endif /* DEBUG */
 
-  return return_value;
+  return 1;
 }
 /*---------------------------------------------------------------------------*/
 static int
