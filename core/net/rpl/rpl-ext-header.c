@@ -139,7 +139,7 @@ rpl_verify_header(int uip_ext_opt_offset)
     /* A rank error was signalled, attempt to repair it by updating
      * the sender's rank from ext header */
     sender->rank = sender_rank;
-    rpl_select_dag(instance, sender);
+    rpl_select_dag(instance, sender->dag);
   }
 
   if((down && !sender_closer) || (!down && sender_closer)) {
