@@ -121,8 +121,7 @@ rpl_print_neighbor_list()
 uip_ds6_nbr_t *
 rpl_get_nbr(rpl_parent_t *parent)
 {
-  linkaddr_t *lladdr = NULL;
-  lladdr = nbr_table_get_lladdr(rpl_parents, parent);
+  const linkaddr_t *lladdr = rpl_get_parent_llpaddr(parent);
   if(lladdr != NULL) {
     return nbr_table_get_from_lladdr(ds6_neighbors, lladdr);
   } else {
@@ -1277,7 +1276,8 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
   if(!acceptable_rank(p->dag, p->rank)) {
     /* The candidate parent is no longer valid: the rank increase resulting
        from the choice of it as a parent would be too high. */
-    PRINTF("RPL: Unacceptable rank %u\n", (unsigned)p->rank);
+    PRINTF("RPL: Unacceptable rank %u (Current min %u, MaxRankInc %u)\n", (unsigned)p->rank,
+        p->dag->min_rank, p->dag->instance->max_rankinc);
     rpl_nullify_parent(p);
     if(p != instance->current_dag->preferred_parent) {
       return 0;
@@ -1343,7 +1343,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
         PRINTF("RPL: Global repair\n");
         if(dio->prefix_info.length != 0) {
           if(dio->prefix_info.flags & UIP_ND6_RA_FLAG_AUTONOMOUS) {
-            PRINTF("RPL : Prefix announced in DIO\n");
+            PRINTF("RPL: Prefix announced in DIO\n");
             rpl_set_prefix(dag, &dio->prefix_info.prefix, dio->prefix_info.length);
           }
         }
@@ -1399,7 +1399,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
   /* Prefix Information Option treated to add new prefix */
   if(dio->prefix_info.length != 0) {
     if(dio->prefix_info.flags & UIP_ND6_RA_FLAG_AUTONOMOUS) {
-      PRINTF("RPL : Prefix announced in DIO\n");
+      PRINTF("RPL: Prefix announced in DIO\n");
       rpl_set_prefix(dag, &dio->prefix_info.prefix, dio->prefix_info.length);
     }
   }
