@@ -121,7 +121,7 @@ rpl_print_neighbor_list(void)
 uip_ds6_nbr_t *
 rpl_get_nbr(rpl_parent_t *parent)
 {
-  const linkaddr_t *lladdr = rpl_get_parent_llpaddr(parent);
+  const linkaddr_t *lladdr = rpl_get_parent_lladdr(parent);
   if(lladdr != NULL) {
     return nbr_table_get_from_lladdr(ds6_neighbors, lladdr);
   } else {
@@ -208,6 +208,23 @@ rpl_parent_is_fresh(rpl_parent_t *p)
 {
   const struct link_stats *stats = rpl_get_parent_link_stats(p);
   return link_stats_is_fresh(stats);
+}
+/*---------------------------------------------------------------------------*/
+int
+rpl_parent_is_reachable(rpl_parent_t *p) {
+  if(p == NULL || p->dag == NULL || p->dag->instance == NULL || p->dag->instance->of == NULL) {
+    return 0;
+  } else {
+#ifndef UIP_CONF_ND6_SEND_NA
+    uip_ds6_nbr_t *nbr = rpl_get_nbr(p);
+    /* Exclude links to a neighbor that is not reachable at a NUD level */
+    if(nbr == NULL || nbr->state != NBR_REACHABLE) {
+      return 0;
+    }
+#endif /* UIP_CONF_ND6_SEND_NA */
+    /* If we don't have fresh link information, assume the parent is reachable. */
+    return !rpl_parent_is_fresh(p) || p->dag->instance->of->parent_has_usable_link(p);
+  }
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -1295,6 +1312,13 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
 #endif /* DEBUG */
 
   return_value = 1;
+
+  if(uip_ds6_route_is_nexthop(rpl_get_parent_ipaddr(p)) && !rpl_parent_is_reachable(p)) {
+    PRINTF("RPL: Unacceptable link %u, removing routes via: ", rpl_get_parent_link_metric(p));
+    PRINT6ADDR(rpl_get_parent_ipaddr(p));
+    PRINTF("\n");
+    rpl_remove_routes_by_nexthop(rpl_get_parent_ipaddr(p), p->dag);
+  }
 
   if(!acceptable_rank(p->dag, p->rank)) {
     /* The candidate parent is no longer valid: the rank increase resulting
