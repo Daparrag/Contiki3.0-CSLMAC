@@ -136,6 +136,12 @@ parent_is_acceptable(rpl_parent_t *p)
       && STEP_OF_RANK(p) <= MAX_STEP_OF_RANK;
 }
 /*---------------------------------------------------------------------------*/
+static int
+parent_has_usable_link(rpl_parent_t *p)
+{
+  return parent_is_acceptable(p);
+}
+/*---------------------------------------------------------------------------*/
 static rpl_parent_t *
 best_parent(rpl_parent_t *p1, rpl_parent_t *p2)
 {
@@ -203,6 +209,7 @@ update_metric_container(rpl_instance_t *instance)
 rpl_of_t rpl_of0 = {
   reset,
   parent_link_metric,
+  parent_has_usable_link,
   parent_path_cost,
   rank_via_parent,
   best_parent,

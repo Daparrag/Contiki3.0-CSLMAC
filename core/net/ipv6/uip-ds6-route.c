@@ -263,6 +263,12 @@ uip_ds6_route_lookup(uip_ipaddr_t *addr)
   return found_route;
 }
 /*---------------------------------------------------------------------------*/
+int
+uip_ds6_route_is_nexthop(const uip_lladdr_t *lladdr)
+{
+  return nbr_table_get_from_lladdr(nbr_routes, (linkaddr_t *)lladdr) != NULL;
+}
+/*---------------------------------------------------------------------------*/
 uip_ds6_route_t *
 uip_ds6_route_add(uip_ipaddr_t *ipaddr, uint8_t length,
 		  uip_ipaddr_t *nexthop)

@@ -159,6 +159,7 @@ void uip_ds6_defrt_periodic(void);
 uip_ds6_route_t *uip_ds6_route_lookup(uip_ipaddr_t *destipaddr);
 uip_ds6_route_t *uip_ds6_route_add(uip_ipaddr_t *ipaddr, uint8_t length,
                                    uip_ipaddr_t *next_hop);
+int uip_ds6_route_is_nexthop(const uip_lladdr_t *lladdr);
 void uip_ds6_route_rm(uip_ds6_route_t *route);
 void uip_ds6_route_rm_by_nexthop(uip_ipaddr_t *nexthop);
 
