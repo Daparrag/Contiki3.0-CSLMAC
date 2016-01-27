@@ -30,6 +30,10 @@ LINKERSCRIPT     = $(OPENLAB_GIT)/platform/scripts/stm32f103rey6.ld
 OOCD_TARGET      = stm32f1x
 OOCD_ITF         = $(OPENLAB_GIT)/platform/scripts/iotlab-a8-m3.cfg
 
+MODULES += core/net core/net/mac \
+           core/net/mac/contikimac \
+           core/net/llsec
+
 include $(OPENLAB)/Makefile.include
 
 ## Openlab sources
