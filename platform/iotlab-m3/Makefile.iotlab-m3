@@ -32,6 +32,11 @@ OOCD_ITF         = $(OPENLAB_GIT)/platform/scripts/iotlab-m3.cfg
 
 CLEAN += symbols.c symbols.h
 
+MODULES += core/net core/net/mac \
+           core/net/mac/contikimac \
+           core/net/llsec
+
+
 #
 # Global 'openlab' platforms sources
 #

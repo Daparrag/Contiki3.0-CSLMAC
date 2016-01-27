@@ -80,13 +80,6 @@ typedef int32_t  s32_t;
 #define RF2XX_DEVICE rf231
 #define SLIP_ARCH_CONF_UART uart_print
 
-#if WITH_UIP
-#if WITH_UIP6
-#error WITH_UIP && WITH_UIP6: Bad configuration
-#endif /* WITH_UIP6 */
-#endif /* WITH_UIP */
-
-
 /*
  * Global Configuration networking
  */
@@ -109,7 +102,7 @@ typedef unsigned int uip_stats_t;
 
 
 /* Default network config */
-#if WITH_UIP6
+#if NETSTACK_CONF_WITH_IPV6
 /*
  * Network setup for IPv6
  */
@@ -121,21 +114,27 @@ typedef unsigned int uip_stats_t;
 //#define NETSTACK_CONF_RDC           nullrdc_driver
 //#define NETSTACK_CONF_RDC           cxmac_driver
 //#define NETSTACK_CONF_RDC           sicslowmac_driver
-#else /* WITH_UIP6 */
+
+#define UIP_CONF_ICMP6              1
+#define SICSLOWPAN_CONF_COMPRESSION             SICSLOWPAN_COMPRESSION_HC06
+
+#endif /* NETSTACK_CONF_WITH_IPV6 */
 
 
-#if WITH_UIP
+#if NETSTACK_CONF_WITH_IPV4
 /*
  * Network setup for IPv4
  */
-#error !WITH_UIP6 && WITH_UIP not tested
+#error NETSTACK_CONF_WITH_IPV4 not tested
 // Cooja config:
 #define NETSTACK_CONF_NETWORK rime_driver
 #define UIP_CONF_IP_FORWARD           1
 #define NETSTACK_CONF_MAC nullmac_driver
 
 
-#else /* WITH_UIP */
+#endif /* NETSTACK_CONF_WITH_IPV4 */
+
+#if NETSTACK_CONF_WITH_RIME
 /*
  * Network setup for Rime
  */
@@ -144,8 +143,7 @@ typedef unsigned int uip_stats_t;
 #define NETSTACK_CONF_NETWORK rime_driver
 #define NETSTACK_CONF_MAC csma_driver
 
-#endif /* WITH_UIP */
-#endif /* WITH_UIP6 */
+#endif /* #if NETSTACK_CONF_WITH_RIME */
 #endif /* NETSTACK_CONF_H */
 
 /* ---------------------------------------- */
@@ -192,18 +190,6 @@ typedef unsigned int uip_stats_t;
 #define UIP_CONF_LLH_LEN            0
 #define UIP_CONF_UDP                1
 #define UIP_CONF_TCP                1
-
-
-/* IPv6 configuration */
-#if WITH_UIP6
-#define UIP_CONF_IPV6               1
-#define UIP_CONF_ICMP6              1
-#define UIP_CONF_IPV6_RPL           1
-
-// TODO replace by default contiki compression RFC6282 HC-06
-#define SICSLOWPAN_CONF_COMPRESSION SICSLOWPAN_COMPRESSION_IPV6
-#endif /* WITH_UIP6 */
-
 
 /*
  * Non IPv6 Configuration ?
