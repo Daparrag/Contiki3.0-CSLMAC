@@ -136,7 +136,7 @@ static int enabled = SENSOR_STATUS_DISABLED;
 static uint8_t sensor_value[SENSOR_DATA_BUF_SIZE];
 /*---------------------------------------------------------------------------*/
 /* Wait SENSOR_STARTUP_DELAY clock ticks for the sensor to be ready - ~80ms */
-#define SENSOR_STARTUP_DELAY 11
+#define SENSOR_STARTUP_DELAY 3
 
 static struct ctimer startup_timer;
 /*---------------------------------------------------------------------------*/
@@ -148,7 +148,7 @@ notify_ready(void *not_used)
 }
 /*---------------------------------------------------------------------------*/
 static void
-select(void)
+select_on_bus(void)
 {
   /* Set up I2C */
   board_i2c_select(BOARD_I2C_INTERFACE_0, BMP280_I2C_ADDRESS);
@@ -162,7 +162,7 @@ init(void)
 {
   uint8_t val;
 
-  select();
+  select_on_bus();
 
   /* Read and store calibration data */
   sensor_common_read_reg(ADDR_CALIB, calibration_data, CALIB_DATA_SIZE);
@@ -183,11 +183,11 @@ enable_sensor(bool enable)
 {
   uint8_t val;
 
-  select();
+  select_on_bus();
 
   if(enable) {
     /* Enable forced mode */
-    val = PM_NORMAL | OSRSP(1) | OSRST(1);
+    val = PM_FORCED | OSRSP(1) | OSRST(1);
   } else {
     val = PM_OFF;
   }
@@ -205,7 +205,7 @@ read_data(uint8_t *data)
 {
   bool success;
 
-  select();
+  select_on_bus();
 
   success = sensor_common_read_reg(ADDR_PRESS_MSB, data, MEAS_DATA_SIZE);
   if(!success) {
@@ -286,7 +286,7 @@ convert(uint8_t *data, int32_t *temp, uint32_t *press)
 /*---------------------------------------------------------------------------*/
 /**
  * \brief Returns a reading from the sensor
- * \param BMP_280_SENSOR_TYPE_TEMP or BMP_280_SENSOR_TYPE_PRESS
+ * \param type BMP_280_SENSOR_TYPE_TEMP or BMP_280_SENSOR_TYPE_PRESS
  * \return Temperature (centi degrees C) or Pressure (Pascal).
  */
 static int
@@ -345,6 +345,7 @@ configure(int type, int enable)
   case SENSORS_HW_INIT:
     enabled = SENSOR_STATUS_INITIALISED;
     init();
+    enable_sensor(0);
     break;
   case SENSORS_ACTIVE:
     /* Must be initialised first */
