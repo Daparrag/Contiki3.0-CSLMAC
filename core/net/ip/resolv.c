@@ -394,7 +394,7 @@ dns_name_isequal(const unsigned char *queryptr, const char *name,
         return 0;
       }
 
-      if(tolower(*name++) != tolower(*queryptr++)) {
+      if(tolower((unsigned int)*name++) != tolower((unsigned int)*queryptr++)) {
         return 0;
       }
     }
@@ -501,7 +501,7 @@ mdns_write_announce_records(unsigned char *queryptr, uint8_t *count)
   for(i = 0; i < UIP_DS6_ADDR_NB; ++i) {
     if(uip_ds6_if.addr_list[i].isused
 #if !RESOLV_CONF_MDNS_INCLUDE_GLOBAL_V6_ADDRS
-       && uip_is_addr_link_local(&uip_ds6_if.addr_list[i].ipaddr)
+       && uip_is_addr_linklocal(&uip_ds6_if.addr_list[i].ipaddr)
 #endif
       ) {
       if(!*count) {
@@ -787,7 +787,7 @@ newdata(void)
 
   static int8_t i;
 
-  register struct namemap *namemapptr;
+  register struct namemap *namemapptr = NULL;
 
   struct dns_answer *ans;
 
