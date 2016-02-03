@@ -393,7 +393,8 @@ void
 rpl_insert_header(void)
 {
 #if RPL_INSERT_HBH_OPTION
-  if(default_instance != NULL && !uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
+  if(default_instance != NULL && !uip_is_addr_linklocal(&UIP_IP_BUF->destipaddr)
+      && !uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
     rpl_update_header_empty();
   }
 #endif
