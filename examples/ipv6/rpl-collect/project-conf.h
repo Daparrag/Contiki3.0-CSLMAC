@@ -31,6 +31,17 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
+#ifndef RPL_CONF_WITH_NON_STORING
+#define RPL_CONF_WITH_NON_STORING 0 /* Set this to run with non-storing mode */
+#endif /* RPL_CONF_WITH_NON_STORING */
+
+#if RPL_CONF_WITH_NON_STORING
+#undef RPL_CONF_WITH_STORING
+#define RPL_CONF_WITH_STORING 0
+#undef RPL_CONF_MOP
+#define RPL_CONF_MOP RPL_MOP_NON_STORING
+#endif /* RPL_CONF_WITH_NON_STORING */
+
 /* Save some ROM */
 #undef UIP_CONF_TCP
 #define UIP_CONF_TCP                   0
