@@ -10,7 +10,7 @@ void set_rime_addr()
     linkaddr_node_addr.u8[1] = 0xff & (short_uid);
 #else
 
-#define IOTLAB_UID_ADDR 0
+#define IOTLAB_UID_ADDR 1
 #if !(IOTLAB_UID_ADDR)
     /* Company 3 Bytes */
     linkaddr_node_addr.u8[0] = 0x01;
