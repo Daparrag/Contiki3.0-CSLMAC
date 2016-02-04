@@ -19,6 +19,11 @@
 *.avr-raven
 *.exp5438
 *.mbxxx
+*.iotlab-m3
+*.iotlab-a8-m3
+*.openlab-fox
+*.openlab-newt
+*.wsn430
 *.win32
 *.apple2enh
 *.atarixl
