@@ -1082,6 +1082,7 @@ dao_ack_output(rpl_instance_t *instance, uip_ipaddr_t *dest, uint8_t sequence)
   PRINT6ADDR(dest);
   PRINTF("\n");
 
+  uip_ext_len = 0;
   buffer = UIP_ICMP_PAYLOAD;
 
   buffer[0] = instance->instance_id;
