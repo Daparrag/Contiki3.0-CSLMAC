@@ -159,7 +159,7 @@ typedef unsigned int uip_stats_t;
 /* contikimac */
 #define RDC_CONF_HARDWARE_CSMA 0
 #define RDC_CONF_HARDWARE_ACK 0
-#define RDC_CONF_HARDWARE_SEND_ACK 0
+#define CONTIKIMAC_CONF_SEND_SW_ACK 1
 #define CONTIKIMAC_CONF_WITH_CONTIKIMAC_HEADER 0
 
 /* Other configs, no idea why (not checked) */
