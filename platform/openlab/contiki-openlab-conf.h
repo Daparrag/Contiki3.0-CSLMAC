@@ -32,13 +32,6 @@
 
 #include <stdint.h>
 
-/* include the project config */
-/* PROJECT_CONF_H might be defined in the project Makefile */
-#ifdef PROJECT_CONF_H
-#include PROJECT_CONF_H
-#endif /* PROJECT_CONF_H */
-
-
 /* ---------------------------------------- */
 /*
  *  Clock module and rtimer support
@@ -205,5 +198,11 @@ typedef unsigned int uip_stats_t;
 #define WITH_ASCII                      1
 #define CCIF
 #define CLIF
+
+/* include the project config */
+/* PROJECT_CONF_H might be defined in the project Makefile */
+#ifdef PROJECT_CONF_H
+#include PROJECT_CONF_H
+#endif /* PROJECT_CONF_H */
 
 #endif /* OPENLAB_CONTIKI_CONF_H_ */
