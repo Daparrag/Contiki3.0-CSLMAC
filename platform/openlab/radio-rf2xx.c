@@ -82,6 +82,11 @@ static volatile enum rf2xx_state rf2xx_state;
 static volatile int rf2xx_on;
 static volatile int cca_pending;
 
+/* Are we currently in poll mode? */
+static uint8_t volatile poll_mode = 0;
+/* SFD timestamp of last incoming packet */
+static rtimer_clock_t sfd_start_time;
+
 static int read(uint8_t *buf, uint8_t buf_len);
 static void listen(void);
 static void idle(void);
@@ -299,7 +304,7 @@ rf2xx_wr_read(void *buf, unsigned short buf_len)
 
     // Is there a packet pending
     platform_enter_critical();
-    if (rf2xx_state != RF_RX_DONE)
+    if (rf2xx_wr_pending_packet() == 0)
     {
         platform_exit_critical();
         return 0;
@@ -372,7 +377,7 @@ rf2xx_wr_channel_clear(void)
 static int
 rf2xx_wr_receiving_packet(void)
 {
-    return (rf2xx_state == RF_RX) ? 1 : 0;
+  return (rf2xx_state == RF_RX) || rf2xx_get_status(RF2XX_DEVICE) == RF2XX_TRX_STATUS__BUSY_RX;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -381,7 +386,10 @@ rf2xx_wr_receiving_packet(void)
 static int
 rf2xx_wr_pending_packet(void)
 {
-    return (rf2xx_state == RF_RX_DONE) ? 1 : 0;
+  if(rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__IRQ_STATUS) & RF2XX_IRQ_STATUS_MASK__TRX_END) {
+    rf2xx_state = RF_RX_DONE;
+  }
+  return rf2xx_state == RF_RX_DONE;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -442,6 +450,30 @@ rf2xx_wr_off(void)
 }
 
 /*---------------------------------------------------------------------------*/
+/* Enable or disable poll mode */
+static void
+set_poll_mode(uint8_t enable)
+{
+  poll_mode = enable;
+  /* Disable and clear interrupts */
+  rf2xx_irq_disable(RF2XX_DEVICE);
+  rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__IRQ_STATUS);
+  rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__IRQ_MASK,
+        RF2XX_IRQ_STATUS_MASK__TRX_END |
+        RF2XX_IRQ_STATUS_MASK__RX_START);
+  /* Enable interrupts */
+  rf2xx_irq_enable(RF2XX_DEVICE);
+}
+
+static void
+set_channel(uint8_t channel)
+{
+  uint8_t reg = RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE |
+        (channel & RF2XX_PHY_CC_CCA_MASK__CHANNEL);
+  rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__PHY_CC_CCA, reg);
+}
+
+/*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
 const struct radio_driver rf2xx_driver =
@@ -469,7 +501,7 @@ PROCESS_THREAD(rf2xx_process, ev, data)
     {
         static int len;
         static int flag;
-        PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+        PROCESS_YIELD_UNTIL(!poll_mode && ev == PROCESS_EVENT_POLL);
 
         /*
          * at this point, we may be in any state
@@ -646,14 +678,10 @@ static void reset(void)
     rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__XOSC_CTRL, reg);
 
     // Set channel
-    reg = RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE |
-        (RF2XX_CHANNEL & RF2XX_PHY_CC_CCA_MASK__CHANNEL);
-    rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__PHY_CC_CCA, reg);
+    set_channel(RF2XX_CHANNEL);
 
     // Set IRQ to TRX END/RX_START/CCA_DONE
-    rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__IRQ_MASK,
-            RF2XX_IRQ_STATUS_MASK__TRX_END |
-            RF2XX_IRQ_STATUS_MASK__RX_START);
+    set_poll_mode(poll_mode);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -800,6 +828,7 @@ static void irq_handler(handler_arg_t arg)
     if (reg & RF2XX_IRQ_STATUS_MASK__RX_START && state == RF_LISTEN)
     {
         rf2xx_state = state = RF_RX;
+        sfd_start_time = RTIMER_NOW();
     }
 
     // rx/tx end
@@ -815,7 +844,11 @@ static void irq_handler(handler_arg_t arg)
                 rf2xx_state = state = RF_RX_DONE;
                 // we do not want to start a 2nd RX
                 rf2xx_set_state(RF2XX_DEVICE, RF2XX_TRX_STATE__PLL_ON);
-                process_poll(&rf2xx_process);
+                if(!poll_mode) {
+                  /* In poll mode, do not wakeup the process. Rather, the upper layer will poll
+                   * for incoming packets */
+                  process_poll(&rf2xx_process);
+                }
                 break;
         }
     }
