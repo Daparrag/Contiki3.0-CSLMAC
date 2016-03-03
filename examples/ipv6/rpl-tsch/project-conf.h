@@ -67,6 +67,9 @@
 #define TSCH_CALLBACK_JOINING_NETWORK tsch_rpl_callback_joining_network
 #define TSCH_CALLBACK_LEAVING_NETWORK tsch_rpl_callback_leaving_network
 
+/* Needed for IoT-LAB M3 nodes */
+#undef RF2XX_SOFT_PREPARE
+#define RF2XX_SOFT_PREPARE 0
 /* Needed for cc2420 platforms only */
 /* Disable DCO calibration (uses timerB) */
 #undef DCOSYNCH_CONF_ENABLED
