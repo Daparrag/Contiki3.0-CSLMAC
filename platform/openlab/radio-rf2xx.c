@@ -52,9 +52,19 @@ extern rf2xx_t RF2XX_DEVICE;
 #ifndef RF2XX_TX_POWER
 #define RF2XX_TX_POWER  PHY_POWER_3dBm
 #endif
+#ifndef RF2XX_SOFT_PREPARE
+/* The RF2xx has a single FIFO for Tx and Rx.
+ * - When RF2XX_SOFT_PREPARE is set, rf2xx_wr_prepare merely copies the data to be sent to a soft tx_buf.
+ * rf2xx_wr_transmit will copy from tx_buf to the FIFO and then send.
+ * - When RF2XX_SOFT_PREPARE is unset, rf2xx_wr_prepare actually copies to the FIFO, and rf2xx_wr_transmit
+ * only will only trigger the transmission. */
+#define RF2XX_SOFT_PREPARE 1
+#endif
 
 #define RF2XX_MAX_PAYLOAD 125
+#if RF2XX_SOFT_PREPARE
 static uint8_t tx_buf[RF2XX_MAX_PAYLOAD];
+#endif /* RF2XX_SOFT_PREPARE */
 static uint8_t tx_len;
 
 enum rf2xx_state
@@ -112,75 +122,39 @@ rf2xx_wr_init(void)
 
 /*---------------------------------------------------------------------------*/
 
-/** Prepare the radio with a packet to be sent. */
+/** Copy packet to be sent to the fifo */
 static int
-rf2xx_wr_prepare(const void *payload, unsigned short payload_len)
+rf2xx_wr_hard_prepare(const void *payload, unsigned short payload_le, int async)
 {
-    log_debug("radio-rf2xx: rf2xx_wr_prepare %d",payload_len);
-
-    if (payload_len > RF2XX_MAX_PAYLOAD)
-    {
-        log_error("radio-rf2xx: payload is too big");
-        tx_len = 0;
-        return 1;
-    }
-
-    tx_len = payload_len;
-    memcpy(tx_buf, payload, tx_len);
-
-    return 0;
-}
-
-/*---------------------------------------------------------------------------*/
-
-/** Send the packet that has previously been prepared. */
-static int
-rf2xx_wr_transmit(unsigned short transmit_len)
-{
-    int ret, flag;
-    uint8_t reg;
+	uint8_t reg;
+	int flag;
     rtimer_clock_t time;
-    log_info("radio-rf2xx: rf2xx_wr_transmit %d", transmit_len);
 
-    if (tx_len != transmit_len)
-    {
-        log_error("radio-rf2xx: Length is has changed (was %u now %u)",
-                tx_len, transmit_len);
-        return RADIO_TX_ERR;
-    }
+	// Check state
+	platform_enter_critical();
+	// critical section ensures
+	// no packet reception will be started
+	flag = 0;
+	switch (rf2xx_state)
+	{
+		case RF_LISTEN:
+			flag = 1;
+		case RF_IDLE:
+			rf2xx_state = RF_TX;
+			break;
+		default:
+			platform_exit_critical();
+			return RADIO_TX_COLLISION;
+	}
+	platform_exit_critical();
 
-    // Check state
-    platform_enter_critical();
-    // critical section ensures
-    // no packet reception will be started
-    flag = 0;
-    switch (rf2xx_state)
-    {
-        case RF_LISTEN:
-            flag = 1;
-        case RF_IDLE:
-            rf2xx_state = RF_TX;
-            break;
-        default:
-            platform_exit_critical();
-            return RADIO_TX_COLLISION;
-    }
-    platform_exit_critical();
+	if (flag)
+	{
+		idle();
+	}
 
-    if (flag)
-    {
-        idle();
-    }
-
-#ifdef RF2XX_LEDS_ON
-    if (transmit_len > 10)
-    {
-        leds_on(LEDS_RED);
-    }
-#endif
-
-    // Read IRQ to clear it
-    rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__IRQ_STATUS);
+	// Read IRQ to clear it
+	rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__IRQ_STATUS);
 
     // If radio has external PA, enable DIG3/4
     if (rf2xx_has_pa(RF2XX_DEVICE))
@@ -214,19 +188,83 @@ rf2xx_wr_transmit(unsigned short transmit_len)
 
     // Copy the packet to the radio FIFO
     rf2xx_fifo_write_first(RF2XX_DEVICE, tx_len + 2);
-    rf2xx_fifo_write_remaining_async(RF2XX_DEVICE, tx_buf,
+    if(async) {
+      rf2xx_fifo_write_remaining_async(RF2XX_DEVICE, payload,
             tx_len, NULL, NULL);
+    } else {
+      rf2xx_fifo_write_remaining(RF2XX_DEVICE, payload,
+                tx_len);
+    }
+    return 0;
+}
 
-    // Start TX
-    rf2xx_slp_tr_set(RF2XX_DEVICE);
+/** Prepare the radio with a packet to be sent. */
+static int
+rf2xx_wr_prepare(const void *payload, unsigned short payload_len)
+{
+    log_debug("radio-rf2xx: rf2xx_wr_prepare %d",payload_len);
 
-    // Wait until the end of the packet
-    while (rf2xx_state == RF_TX)
+    if (payload_len > RF2XX_MAX_PAYLOAD)
     {
-        ;
+        log_error("radio-rf2xx: payload is too big");
+        tx_len = 0;
+        return 1;
     }
 
-    ret = (rf2xx_state == RF_TX_DONE) ? RADIO_TX_OK : RADIO_TX_ERR;
+    tx_len = payload_len;
+
+#if RF2XX_SOFT_PREPARE
+    memcpy(tx_buf, payload, tx_len);
+    return 0;
+#else /* RF2XX_SOFT_PREPARE */
+    /* Synchronous copy to the FIFO, return */
+    return rf2xx_wr_hard_prepare(payload, tx_len, 0);
+#endif /* RF2XX_SOFT_PREPARE */
+}
+
+/*---------------------------------------------------------------------------*/
+
+/** Send the packet that has previously been prepared. */
+static int
+rf2xx_wr_transmit(unsigned short transmit_len)
+{
+    int ret;
+
+    log_info("radio-rf2xx: rf2xx_wr_transmit %d", transmit_len);
+
+    if (tx_len != transmit_len)
+    {
+        log_error("radio-rf2xx: Length is has changed (was %u now %u)",
+                tx_len, transmit_len);
+        return RADIO_TX_ERR;
+    }
+
+#if RF2XX_SOFT_PREPARE
+    /* Asynchronous copy to the FIFO and before starting to transmit */
+    ret = rf2xx_wr_hard_prepare(tx_buf, tx_len, 1);
+    if(ret != 0) {
+      return ret;
+    }
+#endif /* RF2XX_SOFT_PREPARE */
+
+#ifdef RF2XX_LEDS_ON
+    if (transmit_len > 10)
+    {
+        leds_on(LEDS_RED);
+    }
+#endif
+
+    // Enable IRQ interrupt
+    rf2xx_irq_enable(RF2XX_DEVICE);
+
+    rf2xx_slp_tr_set(RF2XX_DEVICE);
+
+    // Wait until the transmission starts and ends
+    while(!(rf2xx_get_status(RF2XX_DEVICE) == RF2XX_TRX_STATUS__BUSY_TX));
+    while(!((rf2xx_get_status(RF2XX_DEVICE) != RF2XX_TRX_STATUS__BUSY_TX) || (rf2xx_state != RF_TX)));
+
+    rf2xx_state = RF_TX_DONE;
+    ret = RADIO_TX_OK;
 
 #ifdef RF2XX_LEDS_ON
     leds_off(LEDS_RED);
