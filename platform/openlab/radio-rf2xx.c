@@ -473,6 +473,91 @@ set_channel(uint8_t channel)
   rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__PHY_CC_CCA, reg);
 }
 
+static uint8_t
+get_channel()
+{
+  uint8_t reg = rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__PHY_CC_CCA);
+  return reg & RF2XX_PHY_CC_CCA_MASK__CHANNEL;
+}
+
+static radio_result_t
+get_value(radio_param_t param, radio_value_t *value)
+{
+  int v;
+
+  if(!value) {
+    return RADIO_RESULT_INVALID_VALUE;
+  }
+  switch(param) {
+  case RADIO_PARAM_RX_MODE:
+    *value = 0;
+    /* No frame filtering, no autoack */
+    if(!poll_mode) {
+      *value |= RADIO_RX_MODE_POLL_MODE;
+    }
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_TX_MODE:
+      *value = 0; /* Mode is always 0 (send-on-cca not supported yet) */
+      return RADIO_RESULT_OK;
+  case RADIO_PARAM_CHANNEL:
+    *value = get_channel();
+    return RADIO_RESULT_OK;
+  default:
+    return RADIO_RESULT_NOT_SUPPORTED;
+  }
+}
+
+static radio_result_t
+set_value(radio_param_t param, radio_value_t value)
+{
+  switch(param) {
+  case RADIO_PARAM_RX_MODE:
+    if(value & ~(RADIO_RX_MODE_ADDRESS_FILTER |
+        RADIO_RX_MODE_AUTOACK | RADIO_RX_MODE_POLL_MODE)) {
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    if(value & RADIO_RX_MODE_ADDRESS_FILTER) {
+      /* Frame filtering not supported yet */
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    if(value & RADIO_RX_MODE_AUTOACK) {
+      /* Autoack not supported yet */
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    set_poll_mode((value & RADIO_RX_MODE_POLL_MODE) != 0);
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_TX_MODE:
+    if(value != 0) { /* We support only mode 0 (send-on-cca not supported yet) */
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_CHANNEL:
+    if(value < 11 || value > 26) {
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    set_channel(value);
+    return RADIO_RESULT_OK;
+  default:
+    return RADIO_RESULT_NOT_SUPPORTED;
+  }
+}
+
+static radio_result_t
+get_object(radio_param_t param, void *dest, size_t size)
+{
+  if(param == RADIO_PARAM_LAST_PACKET_TIMESTAMP) {
+    *(rtimer_clock_t*)dest = sfd_start_time;
+    return RADIO_RESULT_OK;
+  }
+  return RADIO_RESULT_NOT_SUPPORTED;
+}
+
+static radio_result_t
+set_object(radio_param_t param, const void *src, size_t size)
+{
+  return RADIO_RESULT_NOT_SUPPORTED;
+}
+
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
@@ -488,6 +573,10 @@ const struct radio_driver rf2xx_driver =
     .pending_packet   = rf2xx_wr_pending_packet,
     .on               = rf2xx_wr_on,
     .off              = rf2xx_wr_off,
+    .get_value        = get_value,
+    .set_value        = set_value,
+    .get_object       = get_object,
+    .set_object       = set_object,
  };
 
 /*---------------------------------------------------------------------------*/
