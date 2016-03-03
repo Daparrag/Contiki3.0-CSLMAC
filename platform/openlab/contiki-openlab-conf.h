@@ -99,14 +99,19 @@ typedef unsigned int uip_stats_t;
 /*
  * Network setup for IPv6
  */
+#ifndef NETSTACK_CONF_NETWORK
 #define NETSTACK_CONF_NETWORK       sicslowpan_driver
+#endif
+#ifndef NETSTACK_CONF_MAC
 #define NETSTACK_CONF_MAC           csma_driver
+#endif
+#ifndef NETSTACK_CONF_FRAMER
 #define NETSTACK_CONF_FRAMER        framer_802154
+#endif
 /* NETSTACK_CONF_RDC */
+#ifndef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC           contikimac_driver
-//#define NETSTACK_CONF_RDC           nullrdc_driver
-//#define NETSTACK_CONF_RDC           cxmac_driver
-//#define NETSTACK_CONF_RDC           sicslowmac_driver
+#endif
 
 #define UIP_CONF_ICMP6              1
 #define SICSLOWPAN_CONF_COMPRESSION             SICSLOWPAN_COMPRESSION_HC06
