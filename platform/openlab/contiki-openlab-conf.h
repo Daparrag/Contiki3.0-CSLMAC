@@ -60,6 +60,14 @@ typedef int32_t  s32_t;
 /* Prefix for relocation sections in ELF files */
 #define REL_SECT_PREFIX ".rel"
 
+/* Delay between GO signal and SFD
+ * TODO: the current value is only a guess, needs actual measurement */
+#define RADIO_DELAY_BEFORE_TX ((unsigned)US_TO_RTIMERTICKS(182))
+/* Delay between GO signal and start listening
+ * TODO: the current value is only a guess, needs actual measurement */
+#define RADIO_DELAY_BEFORE_RX ((unsigned)US_TO_RTIMERTICKS(150))
+/* Delay between the SFD finishes arriving and it is detected in software */
+#define RADIO_DELAY_BEFORE_DETECT ((unsigned)US_TO_RTIMERTICKS(0))
 
 /* ---------------------------------------- */
 
