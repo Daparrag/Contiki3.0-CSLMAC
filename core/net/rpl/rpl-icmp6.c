@@ -731,6 +731,7 @@ dao_input_storing(void)
                        ICMP6_RPL, RPL_CODE_DAO, buffer_length);
       }
       if(flags & RPL_DAO_K_FLAG) {
+        uip_clear_buf();
         dao_ack_output(instance, &dao_sender_addr, sequence);
       }
     }
@@ -787,6 +788,7 @@ fwd_dao:
                      ICMP6_RPL, RPL_CODE_DAO, buffer_length);
     }
     if(flags & RPL_DAO_K_FLAG) {
+      uip_clear_buf();
       dao_ack_output(instance, &dao_sender_addr, sequence);
     }
   }
