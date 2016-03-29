@@ -179,6 +179,9 @@ rpl_srh_get_next_hop(uip_ipaddr_t *ipaddr)
 {
   uint8_t *uip_next_hdr;
   int last_uip_ext_len = uip_ext_len;
+  rpl_dag_t *dag;
+  rpl_ns_node_t *dest_node;
+  rpl_ns_node_t *root_node;
 
   uip_ext_len = 0;
   uip_next_hdr = &UIP_IP_BUF->proto;
@@ -206,9 +209,16 @@ rpl_srh_get_next_hop(uip_ipaddr_t *ipaddr)
     }
   }
 
-  if(uip_next_hdr != NULL && *uip_next_hdr == UIP_PROTO_ROUTING
-      && UIP_RH_BUF->routing_type == RPL_RH_TYPE_SRH) {
-    /* Routing header found. The next hop should be already copied as the IPv6 destination
+  dag = rpl_get_dag(&UIP_IP_BUF->destipaddr);
+  root_node = rpl_ns_get_node(dag, &dag->dag_id);
+  dest_node = rpl_ns_get_node(dag, &UIP_IP_BUF->destipaddr);
+
+  if((uip_next_hdr != NULL && *uip_next_hdr == UIP_PROTO_ROUTING
+      && UIP_RH_BUF->routing_type == RPL_RH_TYPE_SRH) ||
+     (dest_node != NULL && root_node != NULL &&
+      dest_node->parent == root_node)) {
+    /* Routing header found or the packet destined for a direct child of the root.
+     * The next hop should be already copied as the IPv6 destination
      * address, via rpl_process_srh_header. We turn this address into a link-local to enable
      * forwarding to next hop */
     uip_ipaddr_copy(ipaddr, &UIP_IP_BUF->destipaddr);
@@ -370,6 +380,12 @@ insert_srh_header()
   /* For simplicity, we use cmpri = cmpre */
   cmpri = 15;
   cmpre = 15;
+
+  if(node == root_node) {
+    PRINTF("RPL: SRH no need to insert SRH\n");
+    return 0;
+  }
+
   while(node != NULL && node != root_node) {
 
     rpl_ns_get_node_global_addr(&node_addr, node);
@@ -383,13 +399,6 @@ insert_srh_header()
     PRINTF("\n");
     node = node->parent;
     path_len++;
-  }
-
-  if(((DEBUG) & DEBUG_PRINT) && node != NULL) {
-    rpl_ns_get_node_global_addr(&node_addr, node);
-    PRINTF("RPL: SRH Next Hop ");
-    PRINT6ADDR(&node_addr);
-    PRINTF("\n");
   }
 
   /* Extension header length: fixed headers + (n-1) * (16-ComprI) + (16-ComprE)*/
