@@ -188,9 +188,6 @@ rf2xx_wr_hard_prepare(const void *payload, unsigned short payload_le, int async)
 	  }
 	} while (reg != RF2XX_TRX_STATUS__PLL_ON);
 
-	// Enable IRQ interrupt
-	rf2xx_irq_enable(RF2XX_DEVICE);
-
 	// Copy the packet to the radio FIFO
 	rf2xx_fifo_write_first(RF2XX_DEVICE, tx_len + 2);
 	if(async) {
