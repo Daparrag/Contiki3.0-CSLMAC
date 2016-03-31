@@ -261,11 +261,9 @@ rf2xx_wr_transmit(unsigned short transmit_len)
     // Start TX
     rf2xx_slp_tr_set(RF2XX_DEVICE);
 
-    // Wait until the end of the packet
-    while (rf2xx_state == RF_TX)
-    {
-        ;
-    }
+    // Wait until the transmission starts and ends
+    while(!(rf2xx_get_status(RF2XX_DEVICE) == RF2XX_TRX_STATUS__BUSY_TX));
+    while(!((rf2xx_get_status(RF2XX_DEVICE) != RF2XX_TRX_STATUS__BUSY_TX) || (rf2xx_state != RF_TX)));
 
     ret = RADIO_TX_OK;
 
