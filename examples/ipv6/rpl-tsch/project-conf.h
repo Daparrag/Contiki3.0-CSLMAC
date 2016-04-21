@@ -70,6 +70,8 @@
 /* Needed for IoT-LAB M3 nodes */
 #undef RF2XX_SOFT_PREPARE
 #define RF2XX_SOFT_PREPARE 0
+#undef RF2XX_WITH_TSCH
+#define RF2XX_WITH_TSCH 1
 /* Needed for cc2420 platforms only */
 /* Disable DCO calibration (uses timerB) */
 #undef DCOSYNCH_CONF_ENABLED
