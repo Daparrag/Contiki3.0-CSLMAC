@@ -60,6 +60,14 @@ typedef int32_t  s32_t;
 /* Prefix for relocation sections in ELF files */
 #define REL_SECT_PREFIX ".rel"
 
+/* Delay between GO signal and SFD
+ * TODO: the current value is only a guess, needs actual measurement */
+#define RADIO_DELAY_BEFORE_TX ((unsigned)US_TO_RTIMERTICKS(182))
+/* Delay between GO signal and start listening
+ * TODO: the current value is only a guess, needs actual measurement */
+#define RADIO_DELAY_BEFORE_RX ((unsigned)US_TO_RTIMERTICKS(150))
+/* Delay between the SFD finishes arriving and it is detected in software */
+#define RADIO_DELAY_BEFORE_DETECT ((unsigned)US_TO_RTIMERTICKS(0))
 
 /* ---------------------------------------- */
 
@@ -99,14 +107,19 @@ typedef unsigned int uip_stats_t;
 /*
  * Network setup for IPv6
  */
+#ifndef NETSTACK_CONF_NETWORK
 #define NETSTACK_CONF_NETWORK       sicslowpan_driver
+#endif
+#ifndef NETSTACK_CONF_MAC
 #define NETSTACK_CONF_MAC           csma_driver
+#endif
+#ifndef NETSTACK_CONF_FRAMER
 #define NETSTACK_CONF_FRAMER        framer_802154
+#endif
 /* NETSTACK_CONF_RDC */
+#ifndef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC           contikimac_driver
-//#define NETSTACK_CONF_RDC           nullrdc_driver
-//#define NETSTACK_CONF_RDC           cxmac_driver
-//#define NETSTACK_CONF_RDC           sicslowmac_driver
+#endif
 
 #define UIP_CONF_ICMP6              1
 #define SICSLOWPAN_CONF_COMPRESSION             SICSLOWPAN_COMPRESSION_HC06

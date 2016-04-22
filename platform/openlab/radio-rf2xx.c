@@ -40,6 +40,7 @@
 #include "contiki-net.h"
 #include "sys/rtimer.h"
 #include "dev/leds.h"
+
 /*---------------------------------------------------------------------------*/
 
 #ifndef RF2XX_DEVICE
@@ -52,9 +53,27 @@ extern rf2xx_t RF2XX_DEVICE;
 #ifndef RF2XX_TX_POWER
 #define RF2XX_TX_POWER  PHY_POWER_3dBm
 #endif
+#ifndef RF2XX_SOFT_PREPARE
+/* The RF2xx has a single FIFO for Tx and Rx.
+ * - When RF2XX_SOFT_PREPARE is set, rf2xx_wr_prepare merely copies the data to be sent to a soft tx_buf.
+ * rf2xx_wr_transmit will copy from tx_buf to the FIFO and then send.
+ * - When RF2XX_SOFT_PREPARE is unset, rf2xx_wr_prepare actually copies to the FIFO, and rf2xx_wr_transmit
+ * only will only trigger the transmission. */
+#define RF2XX_SOFT_PREPARE 1
+#endif
+
+/* TSCH requires sending and receiving from interrupt, which requires not to rely on the interrupt-driven state only.
+ * Instead, we use rf2xx_reg_write and rf2xx_reg_read in the sending and receiving routines. This, however breaks
+ * should the driver be interrupted by an ISR. In TSCH, this never happens as transmissions and receptions are
+ * done from rtimer interrupt. Keep this disabled for ContikiMAC and NullRDC. */
+#ifndef RF2XX_WITH_TSCH
+#define RF2XX_WITH_TSCH 0
+#endif
 
 #define RF2XX_MAX_PAYLOAD 125
+#if RF2XX_SOFT_PREPARE
 static uint8_t tx_buf[RF2XX_MAX_PAYLOAD];
+#endif /* RF2XX_SOFT_PREPARE */
 static uint8_t tx_len;
 
 enum rf2xx_state
@@ -71,6 +90,11 @@ enum rf2xx_state
 static volatile enum rf2xx_state rf2xx_state;
 static volatile int rf2xx_on;
 static volatile int cca_pending;
+
+/* Are we currently in poll mode? */
+static uint8_t volatile poll_mode = 0;
+/* SFD timestamp of last incoming packet */
+static rtimer_clock_t sfd_start_time;
 
 static int read(uint8_t *buf, uint8_t buf_len);
 static void listen(void);
@@ -112,6 +136,79 @@ rf2xx_wr_init(void)
 
 /*---------------------------------------------------------------------------*/
 
+/** Copy packet to be sent to the fifo */
+static int
+rf2xx_wr_hard_prepare(const void *payload, unsigned short payload_le, int async)
+{
+	uint8_t reg;
+	int flag;
+    rtimer_clock_t time;
+
+	// Check state
+	platform_enter_critical();
+	// critical section ensures
+	// no packet reception will be started
+	flag = 0;
+	switch (rf2xx_state)
+	{
+		case RF_LISTEN:
+			flag = 1;
+		case RF_IDLE:
+			rf2xx_state = RF_TX;
+			break;
+		default:
+			platform_exit_critical();
+			return RADIO_TX_COLLISION;
+	}
+	platform_exit_critical();
+
+	if (flag)
+	{
+		idle();
+	}
+
+	// Read IRQ to clear it
+	rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__IRQ_STATUS);
+
+	// If radio has external PA, enable DIG3/4
+	if (rf2xx_has_pa(RF2XX_DEVICE))
+	{
+	  // Enable the PA
+	  rf2xx_pa_enable(RF2XX_DEVICE);
+
+	  // Activate DIG3/4 pins
+	  reg = rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__TRX_CTRL_1);
+	  reg |= RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN;
+	  rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__TRX_CTRL_1, reg);
+	}
+
+	// Wait until PLL ON state
+	time = RTIMER_NOW() + RTIMER_SECOND / 1000;
+	do
+	{
+	  reg = rf2xx_get_status(RF2XX_DEVICE);
+
+	  // Check for block
+	  if (RTIMER_CLOCK_LT(time, RTIMER_NOW()))
+	  {
+	    log_error("radio-rf2xx: Failed to enter tx");
+	    restart();
+	    return RADIO_TX_ERR;
+	  }
+	} while (reg != RF2XX_TRX_STATUS__PLL_ON);
+
+	// Copy the packet to the radio FIFO
+	rf2xx_fifo_write_first(RF2XX_DEVICE, tx_len + 2);
+	if(async) {
+	  rf2xx_fifo_write_remaining_async(RF2XX_DEVICE, payload,
+	      tx_len, NULL, NULL);
+	} else {
+	  rf2xx_fifo_write_remaining(RF2XX_DEVICE, payload,
+	      tx_len);
+	}
+	return 0;
+}
+
 /** Prepare the radio with a packet to be sent. */
 static int
 rf2xx_wr_prepare(const void *payload, unsigned short payload_len)
@@ -126,9 +223,14 @@ rf2xx_wr_prepare(const void *payload, unsigned short payload_len)
     }
 
     tx_len = payload_len;
-    memcpy(tx_buf, payload, tx_len);
 
+#if RF2XX_SOFT_PREPARE
+    memcpy(tx_buf, payload, tx_len);
     return 0;
+#else /* RF2XX_SOFT_PREPARE */
+    /* Synchronous copy to the FIFO, return */
+    return rf2xx_wr_hard_prepare(payload, tx_len, 0);
+#endif /* RF2XX_SOFT_PREPARE */
 }
 
 /*---------------------------------------------------------------------------*/
@@ -137,9 +239,8 @@ rf2xx_wr_prepare(const void *payload, unsigned short payload_len)
 static int
 rf2xx_wr_transmit(unsigned short transmit_len)
 {
-    int ret, flag;
-    uint8_t reg;
-    rtimer_clock_t time;
+    int ret;
+
     log_info("radio-rf2xx: rf2xx_wr_transmit %d", transmit_len);
 
     if (tx_len != transmit_len)
@@ -149,28 +250,13 @@ rf2xx_wr_transmit(unsigned short transmit_len)
         return RADIO_TX_ERR;
     }
 
-    // Check state
-    platform_enter_critical();
-    // critical section ensures
-    // no packet reception will be started
-    flag = 0;
-    switch (rf2xx_state)
-    {
-        case RF_LISTEN:
-            flag = 1;
-        case RF_IDLE:
-            rf2xx_state = RF_TX;
-            break;
-        default:
-            platform_exit_critical();
-            return RADIO_TX_COLLISION;
+#if RF2XX_SOFT_PREPARE
+    /* Asynchronous copy to the FIFO and before starting to transmit */
+    ret = rf2xx_wr_hard_prepare(tx_buf, tx_len, 1);
+    if(ret != 0) {
+      return ret;
     }
-    platform_exit_critical();
-
-    if (flag)
-    {
-        idle();
-    }
+#endif /* RF2XX_SOFT_PREPARE */
 
 #ifdef RF2XX_LEDS_ON
     if (transmit_len > 10)
@@ -179,54 +265,22 @@ rf2xx_wr_transmit(unsigned short transmit_len)
     }
 #endif
 
-    // Read IRQ to clear it
-    rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__IRQ_STATUS);
-
-    // If radio has external PA, enable DIG3/4
-    if (rf2xx_has_pa(RF2XX_DEVICE))
-    {
-        // Enable the PA
-        rf2xx_pa_enable(RF2XX_DEVICE);
-
-        // Activate DIG3/4 pins
-        reg = rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__TRX_CTRL_1);
-        reg |= RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN;
-        rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__TRX_CTRL_1, reg);
-    }
-
-    // Wait until PLL ON state
-    time = RTIMER_NOW() + RTIMER_SECOND / 1000;
-    do
-    {
-        reg = rf2xx_get_status(RF2XX_DEVICE);
-
-        // Check for block
-        if (RTIMER_CLOCK_LT(time, RTIMER_NOW()))
-        {
-            log_error("radio-rf2xx: Failed to enter tx");
-            restart();
-            return RADIO_TX_ERR;
-        }
-    } while (reg != RF2XX_TRX_STATUS__PLL_ON);
-
     // Enable IRQ interrupt
     rf2xx_irq_enable(RF2XX_DEVICE);
-
-    // Copy the packet to the radio FIFO
-    rf2xx_fifo_write_first(RF2XX_DEVICE, tx_len + 2);
-    rf2xx_fifo_write_remaining_async(RF2XX_DEVICE, tx_buf,
-            tx_len, NULL, NULL);
-
     // Start TX
     rf2xx_slp_tr_set(RF2XX_DEVICE);
 
-    // Wait until the end of the packet
-    while (rf2xx_state == RF_TX)
-    {
-        ;
+    if(!RF2XX_WITH_TSCH) {
+      // Wait until the end of the packet
+      while (rf2xx_state == RF_TX);
+      ret = (rf2xx_state == RF_TX_DONE) ? RADIO_TX_OK : RADIO_TX_ERR;
+    } else {
+      // Wait until the transmission starts and ends
+      while(!(rf2xx_get_status(RF2XX_DEVICE) == RF2XX_TRX_STATUS__BUSY_TX));
+      while(!((rf2xx_get_status(RF2XX_DEVICE) != RF2XX_TRX_STATUS__BUSY_TX) || (rf2xx_state != RF_TX)));
+      ret = RADIO_TX_OK;
     }
 
-    ret = (rf2xx_state == RF_TX_DONE) ? RADIO_TX_OK : RADIO_TX_ERR;
 
 #ifdef RF2XX_LEDS_ON
     leds_off(LEDS_RED);
@@ -261,7 +315,7 @@ rf2xx_wr_read(void *buf, unsigned short buf_len)
 
     // Is there a packet pending
     platform_enter_critical();
-    if (rf2xx_state != RF_RX_DONE)
+    if (rf2xx_wr_pending_packet() == 0)
     {
         platform_exit_critical();
         return 0;
@@ -334,7 +388,11 @@ rf2xx_wr_channel_clear(void)
 static int
 rf2xx_wr_receiving_packet(void)
 {
+  if(!RF2XX_WITH_TSCH) {
     return (rf2xx_state == RF_RX) ? 1 : 0;
+  } else {
+    return (rf2xx_state == RF_RX) || rf2xx_get_status(RF2XX_DEVICE) == RF2XX_TRX_STATUS__BUSY_RX;
+  }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -343,7 +401,14 @@ rf2xx_wr_receiving_packet(void)
 static int
 rf2xx_wr_pending_packet(void)
 {
+  if(!RF2XX_WITH_TSCH) {
     return (rf2xx_state == RF_RX_DONE) ? 1 : 0;
+  } else {
+    if(rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__IRQ_STATUS) & RF2XX_IRQ_STATUS_MASK__TRX_END) {
+      rf2xx_state = RF_RX_DONE;
+    }
+    return rf2xx_state == RF_RX_DONE;
+  }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -404,6 +469,111 @@ rf2xx_wr_off(void)
 }
 
 /*---------------------------------------------------------------------------*/
+/* Enable or disable poll mode */
+static void
+set_poll_mode(uint8_t enable)
+{
+  poll_mode = enable;
+}
+
+static void
+set_channel(uint8_t channel)
+{
+  uint8_t reg = RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE |
+        (channel & RF2XX_PHY_CC_CCA_MASK__CHANNEL);
+  platform_enter_critical();
+  rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__PHY_CC_CCA, reg);
+  platform_exit_critical();
+}
+
+static uint8_t
+get_channel()
+{
+  platform_enter_critical();
+  uint8_t reg = rf2xx_reg_read(RF2XX_DEVICE, RF2XX_REG__PHY_CC_CCA);
+  platform_exit_critical();
+  return reg & RF2XX_PHY_CC_CCA_MASK__CHANNEL;
+}
+
+static radio_result_t
+get_value(radio_param_t param, radio_value_t *value)
+{
+  int v;
+
+  if(!value) {
+    return RADIO_RESULT_INVALID_VALUE;
+  }
+  switch(param) {
+  case RADIO_PARAM_RX_MODE:
+    *value = 0;
+    /* No frame filtering, no autoack */
+    if(!poll_mode) {
+      *value |= RADIO_RX_MODE_POLL_MODE;
+    }
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_TX_MODE:
+      *value = 0; /* Mode is always 0 (send-on-cca not supported yet) */
+      return RADIO_RESULT_OK;
+  case RADIO_PARAM_CHANNEL:
+    *value = get_channel();
+    return RADIO_RESULT_OK;
+  default:
+    return RADIO_RESULT_NOT_SUPPORTED;
+  }
+}
+
+static radio_result_t
+set_value(radio_param_t param, radio_value_t value)
+{
+  switch(param) {
+  case RADIO_PARAM_RX_MODE:
+    if(value & ~(RADIO_RX_MODE_ADDRESS_FILTER |
+        RADIO_RX_MODE_AUTOACK | RADIO_RX_MODE_POLL_MODE)) {
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    if(value & RADIO_RX_MODE_ADDRESS_FILTER) {
+      /* Frame filtering not supported yet */
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    if(value & RADIO_RX_MODE_AUTOACK) {
+      /* Autoack not supported yet */
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    set_poll_mode((value & RADIO_RX_MODE_POLL_MODE) != 0);
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_TX_MODE:
+    if(value != 0) { /* We support only mode 0 (send-on-cca not supported yet) */
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_CHANNEL:
+    if(value < 11 || value > 26) {
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    set_channel(value);
+    return RADIO_RESULT_OK;
+  default:
+    return RADIO_RESULT_NOT_SUPPORTED;
+  }
+}
+
+static radio_result_t
+get_object(radio_param_t param, void *dest, size_t size)
+{
+  if(param == RADIO_PARAM_LAST_PACKET_TIMESTAMP) {
+    *(rtimer_clock_t*)dest = sfd_start_time;
+    return RADIO_RESULT_OK;
+  }
+  return RADIO_RESULT_NOT_SUPPORTED;
+}
+
+static radio_result_t
+set_object(radio_param_t param, const void *src, size_t size)
+{
+  return RADIO_RESULT_NOT_SUPPORTED;
+}
+
+/*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
 const struct radio_driver rf2xx_driver =
@@ -418,6 +588,10 @@ const struct radio_driver rf2xx_driver =
     .pending_packet   = rf2xx_wr_pending_packet,
     .on               = rf2xx_wr_on,
     .off              = rf2xx_wr_off,
+    .get_value        = get_value,
+    .set_value        = set_value,
+    .get_object       = get_object,
+    .set_object       = set_object,
  };
 
 /*---------------------------------------------------------------------------*/
@@ -431,7 +605,7 @@ PROCESS_THREAD(rf2xx_process, ev, data)
     {
         static int len;
         static int flag;
-        PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+        PROCESS_YIELD_UNTIL(!poll_mode && ev == PROCESS_EVENT_POLL);
 
         /*
          * at this point, we may be in any state
@@ -611,11 +785,13 @@ static void reset(void)
     reg = RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE |
         (RF2XX_CHANNEL & RF2XX_PHY_CC_CCA_MASK__CHANNEL);
     rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__PHY_CC_CCA, reg);
+    set_channel(RF2XX_CHANNEL);
 
     // Set IRQ to TRX END/RX_START/CCA_DONE
     rf2xx_reg_write(RF2XX_DEVICE, RF2XX_REG__IRQ_MASK,
             RF2XX_IRQ_STATUS_MASK__TRX_END |
             RF2XX_IRQ_STATUS_MASK__RX_START);
+    set_poll_mode(poll_mode);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -762,6 +938,7 @@ static void irq_handler(handler_arg_t arg)
     if (reg & RF2XX_IRQ_STATUS_MASK__RX_START && state == RF_LISTEN)
     {
         rf2xx_state = state = RF_RX;
+        sfd_start_time = RTIMER_NOW();
     }
 
     // rx/tx end
@@ -777,7 +954,11 @@ static void irq_handler(handler_arg_t arg)
                 rf2xx_state = state = RF_RX_DONE;
                 // we do not want to start a 2nd RX
                 rf2xx_set_state(RF2XX_DEVICE, RF2XX_TRX_STATE__PLL_ON);
-                process_poll(&rf2xx_process);
+                if(!poll_mode) {
+                  /* In poll mode, do not wakeup the process. Rather, the upper layer will poll
+                   * for incoming packets */
+                  process_poll(&rf2xx_process);
+                }
                 break;
         }
     }
