@@ -67,7 +67,7 @@
 #ifdef RPL_MRHOF_CONF_SQUARED_ETX
 #define RPL_MRHOF_SQUARED_ETX RPL_MRHOF_CONF_SQUARED_ETX
 #else /* RPL_MRHOF_CONF_SQUARED_ETX */
-#define RPL_MRHOF_SQUARED_ETX 0
+#define RPL_MRHOF_SQUARED_ETX 1
 #endif /* RPL_MRHOF_CONF_SQUARED_ETX */
 
 /* Configuration parameters of RFC6719. Reject parents that have a higher

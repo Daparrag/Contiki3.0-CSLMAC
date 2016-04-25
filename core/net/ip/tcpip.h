@@ -68,6 +68,7 @@
 #define TCPIP_H_
 
 #include "contiki.h"
+#include "sys/process.h"
 
 struct uip_conn;
 

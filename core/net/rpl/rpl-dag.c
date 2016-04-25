@@ -103,7 +103,7 @@ rpl_print_neighbor_list(void)
     while(p != NULL) {
       const struct link_stats *stats = rpl_get_parent_link_stats(p);
       printf("RPL: nbr %3u %5u, %5u => %5u -- %2u %c%c (last tx %u min ago)\n",
-          rpl_get_parent_ipaddr(p)->u8[15],
+          LOG_ID_FROM_IPADDR(rpl_get_parent_ipaddr(p)),
           p->rank,
           rpl_get_parent_link_metric(p),
           rpl_rank_via_parent(p),
@@ -245,6 +245,10 @@ rpl_set_preferred_parent(rpl_dag_t *dag, rpl_parent_t *p)
     }
     PRINTF("\n");
 
+    LOG("RPL: parent switch %u -> %u\n",
+        dag->preferred_parent ? LOG_ID_FROM_IPADDR(rpl_get_parent_ipaddr(dag->preferred_parent)) : 0,
+            LOG_ID_FROM_IPADDR(rpl_get_parent_ipaddr(p)));
+
 #ifdef RPL_CALLBACK_PARENT_SWITCH
     RPL_CALLBACK_PARENT_SWITCH(dag->preferred_parent, p);
 #endif /* RPL_CALLBACK_PARENT_SWITCH */
@@ -254,6 +258,8 @@ rpl_set_preferred_parent(rpl_dag_t *dag, rpl_parent_t *p)
     nbr_table_unlock(rpl_parents, dag->preferred_parent);
     nbr_table_lock(rpl_parents, p);
     dag->preferred_parent = p;
+
+    rpl_print_neighbor_list();
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -436,7 +442,7 @@ rpl_set_root(uint8_t instance_id, uip_ipaddr_t *dag_id)
 
   ANNOTATE("#A root=%u\n", dag->dag_id.u8[sizeof(dag->dag_id) - 1]);
 
-  rpl_reset_dio_timer(instance);
+  rpl_reset_dio_timer(instance, "Set root");
 
   return dag;
 }
@@ -457,7 +463,7 @@ rpl_repair_root(uint8_t instance_id)
   RPL_LOLLIPOP_INCREMENT(instance->current_dag->version);
   RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
   PRINTF("RPL: rpl_repair_root initiating global repair with version %d\n", instance->current_dag->version);
-  rpl_reset_dio_timer(instance);
+  rpl_reset_dio_timer(instance, "Repair root");
   return 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -786,6 +792,7 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
 
   if(best_dag == NULL) {
     /* No parent found: the calling function handle this problem. */
+    PRINTF("RPL: best_dag == NULL\n");
     return NULL;
   }
 
@@ -841,7 +848,7 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
     /* The DAO parent set changed - schedule a DAO transmission. */
     RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
     rpl_schedule_dao(instance);
-    rpl_reset_dio_timer(instance);
+    rpl_reset_dio_timer(instance, "Switched parent");
 #if DEBUG
     rpl_print_neighbor_list();
 #endif
@@ -901,9 +908,9 @@ rpl_select_parent(rpl_dag_t *dag)
   rpl_parent_t *best = best_parent(dag, 0);
 
   if(best != NULL) {
+#if RPL_SIWTCH_IFF_FRESH
     if(rpl_parent_is_fresh(best)) {
       rpl_set_preferred_parent(dag, best);
-      dag->rank = rpl_rank_via_parent(dag->preferred_parent);
     } else {
       /* The best is not fresh. Look for the best fresh now. */
       rpl_parent_t *best_fresh = best_parent(dag, 1);
@@ -915,17 +922,21 @@ rpl_select_parent(rpl_dag_t *dag)
         rpl_set_preferred_parent(dag, best_fresh);
       }
 #if RPL_WITH_PROBING
-      /* Probe the new best parent shortly in order to get a fresh estimate */
+      /* Probe the best parent shortly in order to get a fresh estimate */
       dag->instance->urgent_probing_target = best;
       rpl_schedule_probing(dag->instance);
 #endif /* RPL_WITH_PROBING */
+#else /* RPL_SIWTCH_IFF_FRESH */
+      rpl_set_preferred_parent(dag, best);
+      dag->rank = rpl_rank_via_parent(dag->preferred_parent);
+#endif /* RPL_SIWTCH_IFF_FRESH */
     }
   } else {
-    rpl_set_preferred_parent(dag, best);
-    dag->rank = INFINITE_RANK;
+    rpl_set_preferred_parent(dag, NULL);
   }
 
-  return best;
+  dag->rank = rpl_rank_via_parent(dag->preferred_parent);
+  return dag->preferred_parent;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -1166,7 +1177,7 @@ rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio)
 
   ANNOTATE("#A join=%u\n", dag->dag_id.u8[sizeof(dag->dag_id) - 1]);
 
-  rpl_reset_dio_timer(instance);
+  rpl_reset_dio_timer(instance, "Joining instance");
   rpl_set_default_route(instance, from);
 
   if(instance->mop != RPL_MOP_NO_DOWNWARD_ROUTES) {
@@ -1302,7 +1313,7 @@ global_repair(uip_ipaddr_t *from, rpl_dag_t *dag, rpl_dio_t *dio)
 
 /*---------------------------------------------------------------------------*/
 void
-rpl_local_repair(rpl_instance_t *instance)
+rpl_local_repair(rpl_instance_t *instance, const char *str)
 {
   int i;
 
@@ -1321,7 +1332,8 @@ rpl_local_repair(rpl_instance_t *instance)
   /* no downward route anymore */
   instance->has_downward_route = 0;
 
-  rpl_reset_dio_timer(instance);
+printf("RPL: local repair (%s)\n", str);
+  rpl_reset_dio_timer(instance, "Local repair");
   /* Request refresh of DAO registrations next DIO */
   RPL_LOLLIPOP_INCREMENT(instance->dtsn_out);
 
@@ -1390,7 +1402,7 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
     if(last_parent != NULL) {
       /* No suitable parent anymore; trigger a local repair. */
       PRINTF("RPL: No parents found in any DAG\n");
-      rpl_local_repair(instance);
+      rpl_local_repair(instance, "No parent found");
       return 0;
     }
   }
@@ -1453,7 +1465,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
         PRINTF("RPL: Root received inconsistent DIO version number (current: %u, received: %u)\n", dag->version, dio->version);
         dag->version = dio->version;
         RPL_LOLLIPOP_INCREMENT(dag->version);
-        rpl_reset_dio_timer(instance);
+        rpl_reset_dio_timer(instance, "Root received inconsistent DIO version number");
       } else {
         PRINTF("RPL: Global repair\n");
         if(dio->prefix_info.length != 0) {
@@ -1471,7 +1483,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
       /* The DIO sender is on an older version of the DAG. */
       PRINTF("RPL: old version received => inconsistency detected\n");
       if(dag->joined) {
-        rpl_reset_dio_timer(instance);
+        rpl_reset_dio_timer(instance, "old version received");
         return;
       }
     }
@@ -1583,7 +1595,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
 
   if(dio->rank == INFINITE_RANK && p == dag->preferred_parent) {
     /* Our preferred parent advertised an infinite rank, reset DIO timer */
-    rpl_reset_dio_timer(instance);
+    rpl_reset_dio_timer(instance, "Received DIO from pref parent with infinite rank");
   }
 
   /* Parent info has been updated, trigger rank recalculation */

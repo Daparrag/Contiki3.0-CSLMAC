@@ -29,6 +29,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#include "contiki.h"
 #include "ip64-addr.h"
 
 #include <stdio.h>

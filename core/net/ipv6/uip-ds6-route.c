@@ -38,6 +38,7 @@
  * \file
  *    Routing table manipulation
  */
+#include "contiki.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ip/uip.h"
 
@@ -448,6 +449,8 @@ uip_ds6_route_add(uip_ipaddr_t *ipaddr, uint8_t length,
   PRINTF("\n");
   ANNOTATE("#L %u 1;blue\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
 
+  printf("uip_ds6_route: adding route to %u via %u\n", LOG_ID_FROM_IPADDR(ipaddr), LOG_ID_FROM_IPADDR(nexthop));
+
 #if UIP_DS6_NOTIFICATIONS
   call_route_callback(UIP_DS6_NOTIFICATION_ROUTE_ADD, ipaddr, nexthop);
 #endif
@@ -472,10 +475,13 @@ uip_ds6_route_rm(uip_ds6_route_t *route)
   assert_nbr_routes_list_sane();
 #endif /* DEBUG != DEBUG_NONE */
   if(route != NULL && route->neighbor_routes != NULL) {
+    uip_ipaddr_t *nexthop = uip_ds6_route_nexthop(route);
 
     PRINTF("uip_ds6_route_rm: removing route: ");
     PRINT6ADDR(&route->ipaddr);
     PRINTF("\n");
+
+    printf("uip_ds6_route: removing route to %u via %u\n", LOG_ID_FROM_IPADDR(&route->ipaddr), LOG_ID_FROM_IPADDR(nexthop));
 
     /* Remove the route from the route list */
     list_remove(routelist, route);
@@ -495,7 +501,6 @@ uip_ds6_route_rm(uip_ds6_route_t *route)
       /* If this was the only route using this neighbor, remove the
          neighbor from the table - this implicitly unlocks nexthop */
 #if (DEBUG) & DEBUG_ANNOTATE
-      uip_ipaddr_t *nexthop = uip_ds6_route_nexthop(route);
       if(nexthop != NULL) {
         ANNOTATE("#L %u 0\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
       }

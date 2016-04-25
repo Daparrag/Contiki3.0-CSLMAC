@@ -99,7 +99,7 @@ tsch_log_process_pending(void)
         if(log->tx.drift_used) {
           printf(", dr %d", log->tx.drift);
         }
-        printf("\n");
+        LOGA_(&log->tx.appdata);
         break;
       case tsch_log_rx:
         printf("%s-%u-%u %u rx %d",
@@ -109,7 +109,8 @@ tsch_log_process_pending(void)
         if(log->rx.drift_used) {
           printf(", dr %d", log->rx.drift);
         }
-        printf(", edr %d\n", (int)log->rx.estimated_drift);
+        printf(", edr %d", (int)log->rx.estimated_drift);
+        LOGA_(&log->tx.appdata);
         break;
       case tsch_log_message:
         printf("%s\n", log->message);

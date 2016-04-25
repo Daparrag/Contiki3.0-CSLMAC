@@ -35,6 +35,7 @@
  *         uIP checksum calculation for MSP430
  */
 
+#include "contiki-conf.h"
 #include "net/ip/uip.h"
 
 #define asmv(arg) __asm__ __volatile__(arg)

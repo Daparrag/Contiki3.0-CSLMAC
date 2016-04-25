@@ -150,6 +150,20 @@ rpl_ns_update_node(rpl_dag_t *dag, const uip_ipaddr_t *child, const uip_ipaddr_t
   child_node->parent = parent_node;
   memcpy(child_node->link_identifier, ((const unsigned char *)child) + 8, 8);
 
+  {
+  uip_ipaddr_t child_addr;
+  uip_ipaddr_t parent_addr;
+  uint16_t child_id = 0;
+  uint16_t parent_id = 0;
+  rpl_ns_get_node_global_addr(&child_addr, child_node);
+  child_id = LOG_ID_FROM_IPADDR(&child_addr);
+  if(child_node->parent != NULL) {
+    rpl_ns_get_node_global_addr(&parent_addr, child_node->parent);
+    parent_id = LOG_ID_FROM_IPADDR(&parent_addr);
+  }
+  printf("RPL NS: updating link, child %u parent %u, lifetime %u, num_nodes %u\n", child_id, parent_id, (unsigned)lifetime, num_nodes);
+  }
+
   return child_node;
 }
 /*---------------------------------------------------------------------------*/

@@ -86,6 +86,7 @@ struct tsch_log_t {
   union {
     char message[48];
     struct {
+      struct app_data appdata;
       int mac_tx_status;
       int dest;
       int drift;
@@ -96,6 +97,7 @@ struct tsch_log_t {
       uint8_t drift_used;
     } tx;
     struct {
+      struct app_data appdata;
       int src;
       int drift;
       int estimated_drift;

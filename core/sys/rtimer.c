@@ -43,8 +43,8 @@
  * @{
  */
 
-#include "sys/rtimer.h"
 #include "contiki.h"
+#include "sys/rtimer.h"
 
 #define DEBUG 0
 #if DEBUG

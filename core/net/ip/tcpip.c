@@ -556,6 +556,7 @@ tcpip_ipv6_output(void)
     /* Look for a RPL Source Route */
     if(rpl_srh_get_next_hop(&ipaddr)) {
       nexthop = &ipaddr;
+      LOGU("Tcpip: fw to %d (srh) (%u bytes)", LOG_ID_FROM_IPADDR(&ipaddr), uip_len);
     }
 #endif /* UIP_CONF_IPV6_RPL && RPL_WITH_NON_STORING */
 
@@ -601,10 +602,11 @@ tcpip_ipv6_output(void)
 #else
           PRINTF("tcpip_ipv6_output: Destination off-link but no route\n");
 #endif /* !UIP_FALLBACK_INTERFACE */
+          LOGU("Tcpip:! no route to %d, dropping", LOG_ID_FROM_IPADDR(&UIP_IP_BUF->destipaddr));
           uip_clear_buf();
           return;
         }
-
+        LOGU("Tcpip: fw to %d (default) (%u bytes)", LOG_ID_FROM_IPADDR(nexthop), uip_len);
       } else {
         /* A route was found, so we look up the nexthop neighbor for
            the route. */
@@ -631,8 +633,10 @@ tcpip_ipv6_output(void)
 
           /* We don't have a nexthop to send the packet to, so we drop
              it. */
+          LOGU("Tcpip:! next hop is dead (%u bytes)", uip_len);
           return;
         }
+        LOGU("Tcpip: fw to %d (%u bytes)", LOG_ID_FROM_IPADDR(nexthop), uip_len);
       }
 #if TCPIP_CONF_ANNOTATE_TRANSMISSIONS
       if(nexthop != NULL) {
@@ -653,10 +657,11 @@ tcpip_ipv6_output(void)
 
 #if UIP_CONF_IPV6_RPL
     if(!rpl_finalize_header(nexthop)) {
+      LOGU("Tcpip:! rpl_finalize_header failed");
       uip_clear_buf();
       return;
     }
-#endif /* UIP_CONF_IPV6_RPL */
+#endif /* UIP_CONF_IPV6_RPL && RPL_WITH_STORING */
     nbr = uip_ds6_nbr_lookup(nexthop);
     if(nbr == NULL) {
 #if UIP_ND6_SEND_NA
@@ -689,13 +694,14 @@ tcpip_ipv6_output(void)
         /* Send the first NS try from here (multicast destination IP address). */
       }
 #else /* UIP_ND6_SEND_NA */
-      PRINTF("tcpip_ipv6_output: neighbor not in cache\n");
+      LOGU("Tcpip:! next hop not in nbr cache");
       uip_len = 0;
       return;  
 #endif /* UIP_ND6_SEND_NA */
     } else {
 #if UIP_ND6_SEND_NA
       if(nbr->state == NBR_INCOMPLETE) {
+        LOGU("Tcpip:! nbr cache entry incomplete");
         PRINTF("tcpip_ipv6_output: nbr cache entry incomplete\n");
 #if UIP_CONF_IPV6_QUEUE_PKT
         /* Copy outgoing pkt in the queuing buffer for later transmit and set

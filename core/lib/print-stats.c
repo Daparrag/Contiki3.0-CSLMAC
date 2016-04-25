@@ -37,6 +37,7 @@
  *         Adam Dunkels <adam@sics.se>
  */
 
+#include "contiki.h"
 #include "lib/print-stats.h"
 
 #include "net/rime/rime.h"

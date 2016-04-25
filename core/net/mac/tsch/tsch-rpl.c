@@ -68,7 +68,7 @@ tsch_rpl_callback_leaving_network(void)
 {
   rpl_dag_t *dag = rpl_get_any_dag();
   if(dag != NULL) {
-    rpl_local_repair(dag->instance);
+    rpl_local_repair(dag->instance, "TSCH leaving");
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -98,7 +98,7 @@ tsch_rpl_callback_new_dio_interval(uint8_t dio_interval)
 void
 tsch_rpl_callback_parent_switch(rpl_parent_t *old, rpl_parent_t *new)
 {
-  if(tsch_is_associated == 1) {
+  if(tsch_is_associated == 1 && new != NULL) {
     tsch_queue_update_time_source(
       (const linkaddr_t *)uip_ds6_nbr_lladdr_from_ipaddr(
         rpl_get_parent_ipaddr(new)));

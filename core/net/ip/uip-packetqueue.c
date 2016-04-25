@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "contiki.h"
 #include "net/ip/uip.h"
 
 #include "lib/memb.h"

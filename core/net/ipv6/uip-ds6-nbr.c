@@ -46,6 +46,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include "contiki.h"
 #include "lib/list.h"
 #include "net/link-stats.h"
 #include "net/linkaddr.h"

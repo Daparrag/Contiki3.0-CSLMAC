@@ -46,6 +46,7 @@
 #if (UIP_CONF_MAX_ROUTES != 0)
 static struct uip_ds6_notification n;
 #endif /* (UIP_CONF_MAX_ROUTES != 0) */
+
 static uint8_t to_become_root;
 static struct ctimer c;
 /*---------------------------------------------------------------------------*/

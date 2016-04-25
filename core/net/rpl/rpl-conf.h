@@ -268,6 +268,12 @@
 #define RPL_DIO_REFRESH_DAO_ROUTES 0
 #endif /* RPL_CONF_DIO_REFRESH_DAO_ROUTES */
 
+#ifdef RPL_CONF_SIWTCH_IFF_FRESH
+#define RPL_SIWTCH_IFF_FRESH RPL_CONF_SIWTCH_IFF_FRESH
+#else
+#define RPL_SIWTCH_IFF_FRESH 1
+#endif
+
 /*
  * RPL probing. When enabled, probes will be sent periodically to keep
  * parent link estimates up to date.

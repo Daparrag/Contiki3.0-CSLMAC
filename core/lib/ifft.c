@@ -36,13 +36,13 @@
  *           $Revision: 1.3 $
  */
 #include "lib/ifft.h"
+#include "sys/cc.h"
 
 /*---------------------------------------------------------------------------*/
 /* constant table of sin values in 8/7 bits resolution */
 /* NOTE: symmetry can be used to reduce this to 1/2 or 1/4 the size */
 #define SIN_TAB_LEN 120
 #define RESOLUTION 7
-#define ABS(x) (x < 0 ? -x : x)
 
 static const int8_t SIN_TAB[] = {
  0,6,13,20,26,33,39,45,52,58,63,69,75,80,

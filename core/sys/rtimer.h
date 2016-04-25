@@ -58,6 +58,7 @@
 #ifndef RTIMER_CLOCK_LT
 typedef unsigned short rtimer_clock_t;
 #define RTIMER_CLOCK_LT(a,b)     ((signed short)((a)-(b)) < 0)
+#define RTIMER_CLOCK_DIFF(a,b)   ((signed short)((a)-(b)))
 #endif /* RTIMER_CLOCK_LT */
 
 #include "rtimer-arch.h"

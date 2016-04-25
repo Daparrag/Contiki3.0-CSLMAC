@@ -351,7 +351,7 @@ uip_ds6_nbr_t *rpl_icmp6_update_nbr_table(uip_ipaddr_t *from,
 /* RPL logic functions. */
 void rpl_join_dag(uip_ipaddr_t *from, rpl_dio_t *dio);
 void rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio);
-void rpl_local_repair(rpl_instance_t *instance);
+void rpl_local_repair(rpl_instance_t *instance, const char * str);
 void rpl_process_dio(uip_ipaddr_t *, rpl_dio_t *);
 int rpl_process_parent_event(rpl_instance_t *, rpl_parent_t *);
 
@@ -390,7 +390,7 @@ void rpl_schedule_unicast_dio_immediately(rpl_instance_t *instance);
 void rpl_cancel_dao(rpl_instance_t *instance);
 void rpl_schedule_probing(rpl_instance_t *instance);
 
-void rpl_reset_dio_timer(rpl_instance_t *);
+void rpl_reset_dio_timer(rpl_instance_t *, const char *str);
 void rpl_reset_periodic_timer(void);
 
 /* Route poisoning. */

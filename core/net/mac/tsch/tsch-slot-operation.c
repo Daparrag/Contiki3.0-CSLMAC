@@ -141,6 +141,9 @@ static rtimer_clock_t volatile current_slot_start;
 /* Are we currently inside a slot? */
 static volatile int tsch_in_slot_operation = 0;
 
+/* If we are inside a slot, this tells the current channel */
+static uint8_t current_channel;
+
 /* Info about the link, packet and neighbor of
  * the current (or next) slot */
 struct tsch_link *current_link = NULL;
@@ -264,12 +267,13 @@ tsch_schedule_slot_operation(struct rtimer *tm, rtimer_clock_t ref_time, rtimer_
   int missed = check_timer_miss(ref_time, offset - RTIMER_GUARD, now);
 
   if(missed) {
-    TSCH_LOG_ADD(tsch_log_message,
+    if(str != NULL) {
+      TSCH_LOG_ADD(tsch_log_message,
                 snprintf(log->message, sizeof(log->message),
                     "!dl-miss %s %d %d",
                         str, (int)(now-ref_time), (int)offset);
-    );
-
+      );
+    }
     return 0;
   }
   ref_time += offset;
@@ -285,8 +289,17 @@ tsch_schedule_slot_operation(struct rtimer *tm, rtimer_clock_t ref_time, rtimer_
  * ahead of time and then busy wait to exactly hit the target. */
 #define TSCH_SCHEDULE_AND_YIELD(pt, tm, ref_time, offset, str) \
   do { \
-    if(tsch_schedule_slot_operation(tm, ref_time, offset - RTIMER_GUARD, str)) { \
+    int now; \
+    if(tsch_schedule_slot_operation(tm, ref_time, offset - RTIMER_GUARD, NULL)) { \
       PT_YIELD(pt); \
+    } \
+    now = RTIMER_NOW(); \
+    if(RTIMER_CLOCK_DIFF(now, (ref_time) + (offset)) > 0) { \
+      TSCH_LOG_ADD(tsch_log_message, \
+                    snprintf(log->message, sizeof(log->message), \
+                        "!sc-miss %s %d %d", \
+                            str, (int)(now-(ref_time)), (int)(offset)); \
+          ); \
     } \
     BUSYWAIT_UNTIL_ABS(0, ref_time, offset); \
   } while(0);
@@ -610,6 +623,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
     log->tx.sec_level = 0;
 #endif /* LLSEC802154_ENABLED */
     log->tx.dest = TSCH_LOG_ID_FROM_LINKADDR(queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER));
+    appdata_copy(&log->tx.appdata, LOG_APPDATAPTR_FROM_BUFFER(queuebuf_dataptr(current_packet->qb), queuebuf_datalen(current_packet->qb)));
     );
 
     /* Poll process for later processing of packet sent events and logs */
@@ -705,6 +719,7 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
         current_input->len = NETSTACK_RADIO.read((void *)current_input->payload, TSCH_PACKET_MAX_LEN);
         current_input->rx_asn = current_asn;
         current_input->rssi = (signed)radio_last_rssi;
+        current_input->channel = current_channel;
         header_len = frame802154_parse((uint8_t *)current_input->payload, current_input->len, &frame);
         frame_valid = header_len > 0 &&
           frame802154_check_dest_panid(&frame) &&
@@ -737,7 +752,7 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
           if(linkaddr_cmp(&destination_address, &linkaddr_node_addr)
              || linkaddr_cmp(&destination_address, &linkaddr_null)) {
             int do_nack = 0;
-            estimated_drift = ((int32_t)expected_rx_time - (int32_t)rx_start_time);
+            estimated_drift = RTIMER_CLOCK_DIFF(expected_rx_time, rx_start_time);
 
 #if TSCH_TIMESYNC_REMOVE_JITTER
             /* remove jitter due to measurement errors */
@@ -800,22 +815,25 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
             ringbufindex_put(&input_ringbuf);
 
             /* Log every reception */
-            TSCH_LOG_ADD(tsch_log_rx,
-              log->rx.src = TSCH_LOG_ID_FROM_LINKADDR((linkaddr_t*)&frame.src_addr);
-              log->rx.is_unicast = frame.fcf.ack_required;
-              log->rx.datalen = current_input->len;
-              log->rx.drift = drift_correction;
-              log->rx.drift_used = is_drift_correction_used;
-              log->rx.is_data = frame.fcf.frame_type == FRAME802154_DATAFRAME;
-              log->rx.sec_level = frame.aux_hdr.security_control.security_level;
-              log->rx.estimated_drift = estimated_drift;
-            );
+            if(frame.fcf.ack_required) { /* Log unicast only */
+              TSCH_LOG_ADD(tsch_log_rx,
+                log->rx.src = TSCH_LOG_ID_FROM_LINKADDR((linkaddr_t*)&frame.src_addr);
+                log->rx.is_unicast = frame.fcf.ack_required;
+                log->rx.datalen = current_input->len;
+                log->rx.drift = drift_correction;
+                log->rx.drift_used = is_drift_correction_used;
+                log->rx.is_data = frame.fcf.frame_type == FRAME802154_DATAFRAME;
+                log->rx.sec_level = frame.aux_hdr.security_control.security_level;
+                log->rx.estimated_drift = estimated_drift;
+                appdata_copy(&log->rx.appdata, LOG_APPDATAPTR_FROM_BUFFER(current_input->payload, current_input->len));
+              );
+            }
           } else {
-            TSCH_LOG_ADD(tsch_log_message,
-                  snprintf(log->message, sizeof(log->message),
-                      "!not for us %x:%x",
-                      destination_address.u8[LINKADDR_SIZE - 2], destination_address.u8[LINKADDR_SIZE - 1]);
-            );
+            //TSCH_LOG_ADD(tsch_log_message,
+            //      snprintf(log->message, sizeof(log->message),
+            //        "!not for us %x:%x",
+            //        destination_address.u8[LINKADDR_SIZE - 2], destination_address.u8[LINKADDR_SIZE - 1]);
+            //);
           }
 
           /* Poll process for processing of pending input and logs */
@@ -861,7 +879,6 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       );
 
     } else {
-      uint8_t current_channel;
       TSCH_DEBUG_SLOT_START();
       tsch_in_slot_operation = 1;
       /* Get a packet ready to be sent */

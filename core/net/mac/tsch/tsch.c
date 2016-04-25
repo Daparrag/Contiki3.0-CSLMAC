@@ -53,6 +53,7 @@
 #include "net/mac/tsch/tsch-log.h"
 #include "net/mac/tsch/tsch-packet.h"
 #include "net/mac/tsch/tsch-security.h"
+#include "net/mac/mac-sequence.h"
 #include "lib/random.h"
 
 #if FRAME802154_VERSION < FRAME802154_IEEE802154E_2012
@@ -85,9 +86,6 @@ struct seqno {
 #else /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
 #define MAX_SEQNOS 8
 #endif /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
-
-/* Seqno history */
-static struct seqno received_seqnos[MAX_SEQNOS];
 
 /* Let TSCH select a time source with no help of an upper layer.
  * We do so using statistics from incoming EBs */
@@ -147,7 +145,7 @@ struct asn_t current_asn;
 /* Device rank or join priority:
  * For PAN coordinator: 0 -- lower is better */
 uint8_t tsch_join_priority;
-/* The current TSCH sequence number, used for both data and EBs */
+/* The current TSCH sequence number, used for data frames only */
 static uint8_t tsch_packet_seqno = 0;
 /* Current period for EB output */
 static clock_time_t tsch_current_eb_period;
@@ -361,6 +359,7 @@ tsch_rx_process_pending()
       /* Copy to packetbuf for processing */
       packetbuf_copyfrom(current_input->payload, current_input->len);
       packetbuf_set_attr(PACKETBUF_ATTR_RSSI, current_input->rssi);
+      packetbuf_set_attr(PACKETBUF_ATTR_CHANNEL, current_input->channel);
     }
 
     /* Remove input from ringbuf */
@@ -633,7 +632,7 @@ PT_THREAD(tsch_scan(struct pt *pt))
       if(current_channel != scan_channel) {
         NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, scan_channel);
         current_channel = scan_channel;
-        PRINTF("TSCH: scanning on channel %u\n", scan_channel);
+        //PRINTF("TSCH: scanning on channel %u\n", scan_channel);
       }
       current_channel_since = now_seconds;
     }
@@ -740,10 +739,6 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
         uint8_t tsch_sync_ie_offset;
         /* Prepare the EB packet and schedule it to be sent */
         packetbuf_clear();
-        /* We don't use seqno 0 */
-        if(++tsch_packet_seqno == 0) {
-          tsch_packet_seqno++;
-        }
         packetbuf_set_attr(PACKETBUF_ATTR_FRAME_TYPE, FRAME802154_BEACONFRAME);
         packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
 #if LLSEC802154_ENABLED
@@ -755,7 +750,7 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
         }
 #endif /* LLSEC802154_ENABLED */
         eb_len = tsch_packet_create_eb(packetbuf_dataptr(), PACKETBUF_SIZE,
-            tsch_packet_seqno, &hdr_len, &tsch_sync_ie_offset);
+            &hdr_len, &tsch_sync_ie_offset);
         if(eb_len != 0) {
           struct tsch_packet *p;
           packetbuf_set_datalen(eb_len);
@@ -919,14 +914,14 @@ send_packet(mac_callback_t sent, void *ptr)
   packet_count_before = tsch_queue_packet_count(addr);
 
   if((hdr_len = NETSTACK_FRAMER.create()) < 0) {
-    PRINTF("TSCH:! can't send packet due to framer error\n");
+    LOGP("TSCH:! can't send packet due to framer error");
     ret = MAC_TX_ERR;
   } else {
     struct tsch_packet *p;
     /* Enqueue packet */
     p = tsch_queue_add_packet(addr, sent, ptr);
     if(p == NULL) {
-      PRINTF("TSCH:! can't send packet !tsch_queue_add_packet\n");
+      LOGP("TSCH:! can't send packet !tsch_queue_add_packet");
       ret = MAC_TX_ERR;
     } else {
       p->header_len = hdr_len;
@@ -952,41 +947,28 @@ packet_input(void)
   frame_parsed = NETSTACK_FRAMER.parse();
 
   if(frame_parsed < 0) {
-    PRINTF("TSCH:! failed to parse %u\n", packetbuf_datalen());
+    LOGP("TSCH:! failed to parse %u", packetbuf_datalen());
   } else {
     int duplicate = 0;
 
-    /* Seqno of 0xffff means no seqno */
+    /* Seqno of 0xffff means a frame with no seqno */
     if(packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO) != 0xffff) {
-      /* Check for duplicate packet by comparing the sequence number
-         of the incoming packet with the last few ones we saw. */
-      int i;
-      for(i = 0; i < MAX_SEQNOS; ++i) {
-        if(packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO) == received_seqnos[i].seqno &&
-           linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_SENDER),
-                        &received_seqnos[i].sender)) {
-          /* Drop the packet. */
-          PRINTF("TSCH:! drop dup ll from %u seqno %u\n",
-                 TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
-                 packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO));
-          duplicate = 1;
-        }
-      }
-      if(!duplicate) {
-        for(i = MAX_SEQNOS - 1; i > 0; --i) {
-          memcpy(&received_seqnos[i], &received_seqnos[i - 1],
-                 sizeof(struct seqno));
-        }
-        received_seqnos[0].seqno = packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO);
-        linkaddr_copy(&received_seqnos[0].sender,
-                      packetbuf_addr(PACKETBUF_ADDR_SENDER));
+      /* Check for duplicates */
+      duplicate = mac_sequence_is_duplicate();
+      if(duplicate) {
+        /* Drop the packet. */
+        LOGP("TSCH:! drop dup ll from %u seqno %u",
+                         TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
+                         packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO));
+      } else {
+        mac_sequence_register_seqno();
       }
     }
 
     if(!duplicate) {
-      PRINTF("TSCH: received from %u with seqno %u\n",
-             TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
-             packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO));
+      //PRINTF("TSCH: received from %u with seqno %u\n",
+      //     TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
+      //     packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO));
       NETSTACK_LLSEC.input();
     }
   }
@@ -1012,6 +994,11 @@ turn_on(void)
 static int
 turn_off(int keep_radio_on)
 {
+  if(keep_radio_on) {
+    NETSTACK_RADIO.on();
+  } else {
+    NETSTACK_RADIO.off();
+  }
   return 1;
 }
 /*---------------------------------------------------------------------------*/

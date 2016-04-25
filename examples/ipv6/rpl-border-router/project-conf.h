@@ -64,4 +64,7 @@
 #define WEBSERVER_CONF_CFS_CONNS 2
 #endif
 
+#undef SLIP_ARCH_CONF_ENABLE
+#define SLIP_ARCH_CONF_ENABLE 1
+
 #endif /* PROJECT_ROUTER_CONF_H_ */

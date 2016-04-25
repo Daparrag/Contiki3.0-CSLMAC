@@ -1230,6 +1230,13 @@ packet_sent(void *ptr, int status, int transmissions)
     callback->output_callback(status);
   }
   last_tx_status = status;
+
+
+  const linkaddr_t *dest = packetbuf_addr(PACKETBUF_ADDR_RECEIVER);
+  LOGP("6LoWPAN: %s sent to %d, st %d %d (%u bytes)",
+    linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
+    LOG_ID_FROM_LINKADDR(dest), status, transmissions,
+    packetbuf_datalen());
 }
 /*--------------------------------------------------------------------*/
 /**
@@ -1254,6 +1261,11 @@ send_packet(linkaddr_t *dest)
   /* Provide a callback function to receive the result of
      a packet transmission. */
   NETSTACK_LLSEC.send(&packet_sent, NULL);
+
+  LOGP("6LoWPAN: %s send to %d (%u bytes)",
+        linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
+            LOG_ID_FROM_LINKADDR(dest),
+            packetbuf_datalen());
 
   /* If we are sending multiple packets in a row, we need to let the
      watchdog know that we are still alive. */
@@ -1475,6 +1487,7 @@ output(const uip_lladdr_t *localdest)
     }
 #else /* SICSLOWPAN_CONF_FRAG */
     PRINTFO("sicslowpan output: Packet too large to be sent without fragmentation support; dropping packet\n");
+    LOGU("6LoWPAN:! packet too large to be sent without fragmentation, dropping");
     return 0;
 #endif /* SICSLOWPAN_CONF_FRAG */
   } else {
@@ -1530,6 +1543,20 @@ input(void)
 
   /* The MAC puts the 15.4 payload inside the packetbuf data buffer */
   packetbuf_ptr = packetbuf_dataptr();
+
+  LOG_INC_HOPCOUNT_FROM_PACKETBUF();
+
+  if(!linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER), &linkaddr_null)) {
+    LOGP("6LoWPAN: uc input from %d (%u bytes)",
+            LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
+            packetbuf_datalen()
+      );
+  }
+  /*LOGP("6LoWPAN: %s input from %d (%u bytes)",
+          linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER), &linkaddr_null) ? "bc" : "uc",
+              LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
+              packetbuf_datalen()
+        );*/
 
   /* This is default uip_buf since we assume that this is not fragmented */
   buffer = (uint8_t *)UIP_IP_BUF;

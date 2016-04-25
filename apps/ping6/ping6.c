@@ -30,15 +30,17 @@
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
+#include "net/rpl/rpl.h"
+#include "node-id.h"
 
 #include "mac.h"
 
 #include <string.h>
 #include <stdio.h>
 
-#define MACDEBUG 0
+#define MACDEBUG 1
 
-#define DEBUG 0
+#define DEBUG 1
 #if DEBUG
 #include <stdio.h>
 #define PRINTF(...) printf(__VA_ARGS__)
@@ -72,11 +74,11 @@ ping6handler(process_event_t ev, process_data_t data)
   if(count == 0){
 #if MACDEBUG
     // Setup destination address.
-    addr[0] = 0xFE80;
-    addr[4] = 0x6466;
-    addr[5] = 0x6666;
-    addr[6] = 0x6666;
-    addr[7] = 0x6666;
+    addr[0] = 0xaaaa;
+    addr[4] = 0xc30c;
+    addr[5] = 0x0;
+    addr[6] = 0x0;
+    addr[7] = 0x6;
     uip_ip6addr(&dest_addr, addr[0], addr[1],addr[2],
                 addr[3],addr[4],addr[5],addr[6],addr[7]);
 
@@ -136,6 +138,9 @@ ping6handler(process_event_t ev, process_data_t data)
     UIP_ICMP_BUF->icmpchksum = 0;
     UIP_ICMP_BUF->icmpchksum = ~uip_icmp6chksum();
 
+#if UIP_CONF_IPV6_RPL
+    rpl_insert_header();
+#endif /* UIP_CONF_IPV6_RPL */
 
     PRINTF("Sending Echo Request to");
     PRINT6ADDR(&UIP_IP_BUF->destipaddr);
@@ -160,6 +165,11 @@ PROCESS_THREAD(ping6_process, ev, data)
   uint8_t cont = 1;
 
   PROCESS_BEGIN();
+
+  if(node_id != 9) {
+    return;
+  }
+
   PRINTF("In Process PING6\n");
   PRINTF("Wait for DAD\n");
 

@@ -1,0 +1,5 @@
+--- cpu/cc26xx-cc13xx/lib/cc26xxware
++++ cpu/cc26xx-cc13xx/lib/cc26xxware
+@@ -1 +1 @@
+-Subproject commit 0270b50ac750f8f3348a98f900a470e7a65ffce8
++Subproject commit 0270b50ac750f8f3348a98f900a470e7a65ffce8-dirty

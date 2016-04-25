@@ -45,6 +45,7 @@
  * @{
  */
 
+#include "contiki.h"
 #include "net/ip/tcpip.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
@@ -59,7 +60,7 @@
 #include <limits.h>
 #include <string.h>
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 
 #include "net/ip/uip-debug.h"
 
@@ -232,7 +233,7 @@ dis_input(void)
 #else /* !RPL_LEAF_ONLY */
       if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
         PRINTF("RPL: Multicast DIS => reset DIO timer\n");
-        rpl_reset_dio_timer(instance);
+        rpl_reset_dio_timer(instance, "MC DIS input");
       } else {
 #endif /* !RPL_LEAF_ONLY */
 	/* Check if this neighbor should be added according to the policy. */
@@ -325,10 +326,10 @@ dio_input(void)
   dio.rank = get16(buffer, i);
   i += 2;
 
-  PRINTF("RPL: Incoming DIO (id, ver, rank) = (%u,%u,%u)\n",
-         (unsigned)dio.instance_id,
-         (unsigned)dio.version,
-         (unsigned)dio.rank);
+  //PRINTF("RPL: Incoming DIO (id, ver, rank) = (%u,%u,%u)\n",
+  //       (unsigned)dio.instance_id,
+  //     (unsigned)dio.version,
+  //     (unsigned)dio.rank);
 
   dio.grounded = buffer[i] & RPL_DIO_GROUNDED;
   dio.mop = (buffer[i]& RPL_DIO_MOP_MASK) >> RPL_DIO_MOP_SHIFT;
@@ -341,9 +342,9 @@ dio_input(void)
   memcpy(&dio.dag_id, buffer + i, sizeof(dio.dag_id));
   i += sizeof(dio.dag_id);
 
-  PRINTF("RPL: Incoming DIO (dag_id, pref) = (");
-  PRINT6ADDR(&dio.dag_id);
-  PRINTF(", %u)\n", dio.preference);
+  //PRINTF("RPL: Incoming DIO (dag_id, pref) = (");
+  //PRINT6ADDR(&dio.dag_id);
+  //PRINTF(", %u)\n", dio.preference);
 
   /* Check if there are any DIO suboptions. */
   for(; i < buffer_length; i += len) {
@@ -361,7 +362,7 @@ dio_input(void)
       goto discard;
     }
 
-    PRINTF("RPL: DIO option %u, length: %u\n", subopt_type, len - 2);
+    //PRINTF("RPL: DIO option %u, length: %u\n", subopt_type, len - 2);
 
     switch(subopt_type) {
     case RPL_OPTION_DAG_METRIC_CONTAINER:
@@ -438,10 +439,10 @@ dio_input(void)
       /* buffer + 12 is reserved */
       dio.default_lifetime = buffer[i + 13];
       dio.lifetime_unit = get16(buffer, i + 14);
-      PRINTF("RPL: DAG conf:dbl=%d, min=%d red=%d maxinc=%d mininc=%d ocp=%d d_l=%u l_u=%u\n",
-             dio.dag_intdoubl, dio.dag_intmin, dio.dag_redund,
-             dio.dag_max_rankinc, dio.dag_min_hoprankinc, dio.ocp,
-             dio.default_lifetime, dio.lifetime_unit);
+      //PRINTF("RPL: DAG conf:dbl=%d, min=%d red=%d maxinc=%d mininc=%d ocp=%d d_l=%u l_u=%u\n",
+      //       dio.dag_intdoubl, dio.dag_intmin, dio.dag_redund,
+      //     dio.dag_max_rankinc, dio.dag_min_hoprankinc, dio.ocp,
+      //     dio.default_lifetime, dio.lifetime_unit);
       break;
     case RPL_OPTION_PREFIX_INFO:
       if(len != 32) {
@@ -455,7 +456,7 @@ dio_input(void)
       /* preferred lifetime stored in lifetime */
       dio.prefix_info.lifetime = get32(buffer, i + 8);
       /* 32-bit reserved at i + 12 */
-      PRINTF("RPL: Copying prefix information\n");
+      //PRINTF("RPL: Copying prefix information\n");
       memcpy(&dio.prefix_info.prefix, &buffer[i + 16], 16);
       break;
     default:
@@ -592,9 +593,9 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
     pos += 4;
     memcpy(&buffer[pos], &dag->prefix_info.prefix, 16);
     pos += 16;
-    PRINTF("RPL: Sending prefix info in DIO for ");
-    PRINT6ADDR(&dag->prefix_info.prefix);
-    PRINTF("\n");
+    //PRINTF("RPL: Sending prefix info in DIO for ");
+    //PRINT6ADDR(&dag->prefix_info.prefix);
+    //PRINTF("\n");
   } else {
     PRINTF("RPL: No prefix to announce (len %d)\n",
            dag->prefix_info.length);
@@ -1059,13 +1060,13 @@ handle_dao_retransmission(void *ptr)
       return;
     }
 
-    if(instance->of->dao_ack_callback) {
+    if(RPL_IS_STORING(instance) && instance->of->dao_ack_callback) {
       /* Inform the objective function about the timeout. */
       instance->of->dao_ack_callback(parent, RPL_DAO_ACK_TIMEOUT);
     }
 
     /* Perform local repair and hope to find another parent. */
-    rpl_local_repair(instance);
+    rpl_local_repair(instance, "DAO retransmission");
     return;
   }
 
@@ -1270,11 +1271,15 @@ dao_ack_input(void)
     return;
   }
 
-  parent = rpl_find_parent(instance->current_dag, &UIP_IP_BUF->srcipaddr);
-  if(parent == NULL) {
-    /* not a known instance - drop the packet and ignore */
-    uip_clear_buf();
-    return;
+  if(RPL_IS_STORING(instance)) {
+    parent = rpl_find_parent(instance->current_dag, &UIP_IP_BUF->srcipaddr);
+    if(parent == NULL) {
+      /* not a known instance - drop the packet and ignore */
+      uip_clear_buf();
+      return;
+    }
+  } else {
+    parent = NULL;
   }
 
   PRINTF("RPL: Received a DAO %s with sequence number %d (%d) and status %d from ",
@@ -1290,7 +1295,7 @@ dao_ack_input(void)
     ctimer_stop(&instance->dao_retransmit_timer);
 
     /* Inform objective function on status of the DAO ACK */
-    if(instance->of->dao_ack_callback) {
+    if(RPL_IS_STORING(instance) && instance->of->dao_ack_callback) {
       instance->of->dao_ack_callback(parent, status);
     }
 

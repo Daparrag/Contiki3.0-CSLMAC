@@ -76,8 +76,13 @@ void uip_debug_lladdr_print(const uip_lladdr_t *addr);
 #else
 #define PRINTF(...) printf(__VA_ARGS__)
 #endif
+#if WITH_LOG
+#define PRINT6ADDR(addr) printf("%u", LOG_ID_FROM_IPADDR(addr));
+#define PRINTLLADDR(lladdr) printf("%u", LOG_ID_FROM_LINKADDR(lladdr));
+#else
 #define PRINT6ADDR(addr) uip_debug_ipaddr_print(addr)
 #define PRINTLLADDR(lladdr) uip_debug_lladdr_print(lladdr)
+#endif /* WITH_LOG */
 #else
 #define PRINTF(...)
 #define PRINT6ADDR(addr)

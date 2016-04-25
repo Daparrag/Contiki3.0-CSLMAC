@@ -44,6 +44,7 @@
  * @{
  */
 
+#include "contiki.h"
 #include "net/ip/uip.h"
 #include "net/ip/tcpip.h"
 #include "net/ipv6/uip-ds6.h"
@@ -51,7 +52,7 @@
 #include "net/rpl/rpl-ns.h"
 #include "net/packetbuf.h"
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #include <limits.h>
@@ -114,7 +115,7 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
     }
     RPL_STAT(rpl_stats.forward_errors++);
     /* Trigger DAO retransmission */
-    rpl_reset_dio_timer(instance);
+    rpl_reset_dio_timer(instance, "Rank error signaled in RPI");
     /* drop the packet as it is not routable */
     return 1;
   }
@@ -160,8 +161,9 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
     if(UIP_EXT_HDR_OPT_RPL_BUF->flags & RPL_HDR_OPT_RANK_ERR) {
       RPL_STAT(rpl_stats.loop_errors++);
       PRINTF("RPL: Rank error signalled in RPL option!\n");
+      LOGU("RPL: Rank error signalled in RPL option!");
       /* Packet must be dropped and dio trickle timer reset, see RFC6550 - 11.2.2.2 */
-      rpl_reset_dio_timer(instance);
+      rpl_reset_dio_timer(instance, "Loop detected and rank error signaled in RPI");
       return 1;
     }
     PRINTF("RPL: Single error tolerated\n");
@@ -527,6 +529,7 @@ update_hbh_header(void)
         if(uip_ds6_route_lookup(&UIP_IP_BUF->destipaddr) == NULL) {
           UIP_EXT_HDR_OPT_RPL_BUF->flags |= RPL_HDR_OPT_FWD_ERR;
           PRINTF("RPL forwarding error\n");
+          LOGU("RPL: packet going down but no route found to destination, dropping");
           /* We should send back the packet to the originating parent,
              but it is not feasible yet, so we send a No-Path DAO instead */
           PRINTF("RPL generate No-Path DAO\n");
@@ -578,6 +581,7 @@ insert_hbh_header(void)
   PRINTF("RPL: Creating hop-by-hop option\n");
   if(uip_len + RPL_HOP_BY_HOP_LEN > UIP_BUFSIZE) {
     PRINTF("RPL: Packet too long: impossible to add hop-by-hop option\n");
+    LOGU("RPL: Packet too long: impossible to add hop-by-hop option");
     uip_ext_len = last_uip_ext_len;
     return 0;
   }

@@ -45,6 +45,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include "contiki.h"
 #include "lib/random.h"
 #include "net/ipv6/uip-nd6.h"
 #include "net/ipv6/uip-ds6.h"

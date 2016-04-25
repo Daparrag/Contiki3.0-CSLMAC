@@ -890,13 +890,14 @@ ext_hdr_options_process(void)
          * Using this fix, the header is ignored, and the next header (if
          * present) is processed.
          */
-#if UIP_CONF_IPV6_RPL
+#if UIP_CONF_IPV6_RPL && RPL_WITH_STORING
         PRINTF("Processing RPL option\n");
         if(rpl_verify_hbh_header(uip_ext_opt_offset)) {
           PRINTF("RPL Option Error: Dropping Packet\n");
+          LOGU("RPL Option Error: Dropping Packet");
           return 1;
         }
-#endif /* UIP_CONF_IPV6_RPL */
+#endif /* UIP_CONF_IPV6_RPL && RPL_WITH_STORING */
         uip_ext_opt_offset += (UIP_EXT_HDR_OPT_BUF->len) + 2;
         return 0;
       default:
@@ -1233,7 +1234,7 @@ uip_process(uint8_t flag)
         PRINTF("RPL header update error\n");
         goto drop;
       }
-#endif /* UIP_CONF_IPV6_RPL */
+#endif /* UIP_CONF_IPV6_RPL && RPL_WITH_STORING */
 
       UIP_IP_BUF->ttl = UIP_IP_BUF->ttl - 1;
       PRINTF("Forwarding packet to ");

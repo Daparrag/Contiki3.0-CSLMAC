@@ -62,6 +62,7 @@
  * function with the hostname.
  */
 
+#include "contiki.h"
 #include "net/ip/tcpip.h"
 #include "net/ip/resolv.h"
 #include "net/ip/uip-udp-packet.h"

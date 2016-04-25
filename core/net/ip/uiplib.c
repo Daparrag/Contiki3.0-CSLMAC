@@ -32,7 +32,7 @@
  *
  */
 
-
+#include "contiki.h"
 #include "net/ip/uip.h"
 #include "net/ip/uiplib.h"
 #include <string.h>

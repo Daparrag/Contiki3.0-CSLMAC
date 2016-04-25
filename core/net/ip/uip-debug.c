@@ -37,6 +37,7 @@
  *         Joakim Eriksson <joakime@sics.se>
  */
 
+#include "contiki.h"
 #include "net/ip/uip-debug.h"
 #include "net/ip/ip64-addr.h"
 

@@ -43,6 +43,7 @@
  */
 
 #include <string.h>
+#include "contiki.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/uip-icmp6.h"
 #include "contiki-default-conf.h"
@@ -302,6 +303,10 @@ uip_icmp6_send(const uip_ipaddr_t *dest, int type, int code, int payload_len)
   UIP_STAT(++uip_stat.ip.sent);
 
   rpl_insert_header();
+
+  UIP_STAT(++uip_stat.icm.sent);
+  UIP_STAT(++uip_stat.ip.sent);
+
   tcpip_ipv6_output();
 }
 /*---------------------------------------------------------------------------*/

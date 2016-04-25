@@ -42,6 +42,7 @@
  * @{
  */
 
+#include "contiki.h"
 #include "net/linkaddr.h"
 #include <string.h>
 

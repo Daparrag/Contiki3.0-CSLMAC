@@ -283,5 +283,23 @@
 #define CONTIKIMAC_CONF_WITH_PHASE_OPTIMIZATION 0
 #endif /* CONTIKIMAC_CONF_WITH_PHASE_OPTIMIZATION */
 
+#ifndef WITH_LOG
+#define LOG(...) printf(__VA_ARGS__)
+#define LOG_NL(...) { printf(__VA_ARGS__); printf("\n"); }
+#define LOGA(appdataptr, ...) LOG_NL(__VA_ARGS__)
+#define LOGA_(appdataptr, ...) LOG_NL(__VA_ARGS__)
+#define LOGU(...) LOG_NL(__VA_ARGS__)
+#define LOGP(...) LOG_NL(__VA_ARGS__)
+#define LOG_IPADDR(addr) uip_debug_ipaddr_print(addr)
+#define LOG_LLADDR(addr) uip_debug_lladdr_print(addr)
+#define LOG_INC_HOPCOUNT_FROM_PACKETBUF() { }
+
+#define LOG_APPDATAPTR_FROM_BUFFER(b, l) NULL
+#define LOG_APPDATAPTR_FROM_PACKETBUF() NULL
+#define LOG_APPDATAPTR_FROM_QUEUEBUF(q) NULL
+#define LOG_ID_FROM_LINKADDR(addr) ((addr) ? (addr)->u8[7] : 0)
+#define LOG_ID_FROM_IPADDR(addr) ((addr) ? (addr)->u8[15] : 0)
+#define LOG_PRINT_NEIGHBOR_LIST rpl_print_neighbor_list
+#endif /* WITH_LOG */
 
 #endif /* CONTIKI_DEFAULT_CONF_H */

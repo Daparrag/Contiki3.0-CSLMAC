@@ -210,7 +210,7 @@ rpl_reset_periodic_timer(void)
 /*---------------------------------------------------------------------------*/
 /* Resets the DIO timer in the instance to its minimal interval. */
 void
-rpl_reset_dio_timer(rpl_instance_t *instance)
+rpl_reset_dio_timer(rpl_instance_t *instance, const char *str)
 {
 #if !RPL_LEAF_ONLY
   /* Do not reset if we are already on the minimum interval,
@@ -220,6 +220,7 @@ rpl_reset_dio_timer(rpl_instance_t *instance)
     instance->dio_intcurrent = instance->dio_intmin;
     new_dio_interval(instance);
   }
+  printf("RPL: reset trickle (%s)\n", str);
 #if RPL_CONF_STATS
   rpl_stats.resets++;
 #endif /* RPL_CONF_STATS */
@@ -466,11 +467,12 @@ handle_probing_timer(void *ptr)
   if(target_ipaddr != NULL) {
     const struct link_stats *stats = rpl_get_parent_link_stats(probing_target);
     (void)stats;
-    PRINTF("RPL: probing %u %s last tx %u min ago\n",
-        rpl_get_parent_llpaddr(probing_target)->u8[7],
+    printf("RPL: probing %u %s last tx %u min ago\n",
+        LOG_ID_FROM_LINKADDR(rpl_get_parent_lladdr(probing_target)),
         instance->urgent_probing_target != NULL ? "(urgent)" : "",
         probing_target != NULL ?
         (unsigned)((clock_time() - stats->last_tx_time) / (60 * CLOCK_SECOND)) : 0
+
         );
     /* Send probe, e.g. unicast DIO or DIS */
     RPL_PROBING_SEND_FUNC(instance, target_ipaddr);
