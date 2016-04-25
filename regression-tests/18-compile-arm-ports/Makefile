@@ -14,6 +14,7 @@ cc26xx/cc26xx-web-demo/srf06-cc26xx:BOARD=srf06/cc13xx \
 cc26xx/very-sleepy-demo/srf06-cc26xx \
 hello-world/cc2538dk \
 ipv6/rpl-border-router/cc2538dk \
+ipv6/rpl-border-router/cc2538dk:MAKE_WITH_NON_STORING=1 \
 er-rest-example/cc2538dk \
 ipso-objects/cc2538dk \
 webserver-ipv6/cc2538dk \
