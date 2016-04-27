@@ -81,11 +81,11 @@ tsch_rpl_callback_new_dio_interval(uint8_t dio_interval)
   rpl_dag_t *dag = rpl_get_any_dag();
   if(dag != NULL && dag->rank != INFINITE_RANK) {
     /* If we are root set TSCH as coordinator */
-    if(dag->rank == ROOT_RANK(dag->instance)) {
+    if(!tsch_is_coordinator && dag->rank == ROOT_RANK(dag->instance)) {
       tsch_set_coordinator(1);
     }
     /* Set EB period */
-    tsch_set_eb_period(TSCH_EB_PERIOD);
+    tsch_set_eb_period(MIN((CLOCK_SECOND * 1UL << dag->instance->dio_intcurrent) / 1000, 60 * CLOCK_SECOND));
     /* Set join priority based on RPL rank */
     tsch_set_join_priority(DAG_RANK(dag->rank, dag->instance) - 1);
   } else {

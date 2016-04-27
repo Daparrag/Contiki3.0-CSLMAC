@@ -38,6 +38,8 @@
  *
  */
 
+#include "tsch.h"
+#include "tsch-conf.h"
 #include "tsch-adaptive-timesync.h"
 #include "tsch-log.h"
 #include <stdio.h>
@@ -72,6 +74,10 @@ timesync_entry_add(int32_t val, uint32_t time_delta)
   buffer[pos] = val;
   if(timesync_entry_count < NUM_TIMESYNC_ENTRIES) {
     timesync_entry_count++;
+  } else {
+    /* We now have accurate drift compensation.
+     * Increase keep-alive timeout. */
+    tsch_set_ka_timeout(TSCH_MAX_KEEPALIVE_TIMEOUT);
   }
   pos = (pos + 1) % NUM_TIMESYNC_ENTRIES;
 

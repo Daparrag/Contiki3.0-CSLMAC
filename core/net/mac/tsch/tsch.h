@@ -49,11 +49,19 @@
 #define TSCH_KEEPALIVE_TIMEOUT (12 * CLOCK_SECOND)
 #endif
 
+/* With TSCH_ADAPTIVE_TIMESYNC enabled: keep-alive timeout used after reaching
+ * accurate drift compensation. */
+#ifdef TSCH_CONF_MAX_KEEPALIVE_TIMEOUT
+#define TSCH_MAX_KEEPALIVE_TIMEOUT TSCH_CONF_MAX_KEEPALIVE_TIMEOUT
+#else
+#define TSCH_MAX_KEEPALIVE_TIMEOUT (60 * CLOCK_SECOND)
+#endif
+
 /* Max time without synchronization before leaving the PAN */
 #ifdef TSCH_CONF_DESYNC_THRESHOLD
 #define TSCH_DESYNC_THRESHOLD TSCH_CONF_DESYNC_THRESHOLD
 #else
-#define TSCH_DESYNC_THRESHOLD (4 * TSCH_KEEPALIVE_TIMEOUT)
+#define TSCH_DESYNC_THRESHOLD (2 * TSCH_MAX_KEEPALIVE_TIMEOUT)
 #endif
 
 /* Period between two consecutive EBs */
@@ -61,6 +69,13 @@
 #define TSCH_EB_PERIOD TSCH_CONF_EB_PERIOD
 #else
 #define TSCH_EB_PERIOD (4 * CLOCK_SECOND)
+#endif
+
+/* Max Period between two consecutive EBs */
+#ifdef TSCH_CONF_MAX_EB_PERIOD
+#define TSCH_MAX_EB_PERIOD TSCH_CONF_MAX_EB_PERIOD
+#else
+#define TSCH_MAX_EB_PERIOD (50 * CLOCK_SECOND)
 #endif
 
 /* Max acceptable join priority */
