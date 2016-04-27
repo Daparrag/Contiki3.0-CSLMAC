@@ -11,7 +11,8 @@ shift
 #The basename of the experiment
 BASENAME=$1
 shift
-# The test will end on the first successfull run
+#Run all seeds and return failure if at least one failed
+FAILURE=0
 
 #set -x
 
@@ -44,13 +45,14 @@ while (( "$#" )); do
 		touch COOJA.testlog; 
 		mv COOJA.testlog $BASENAME.testlog 
 		echo " OK"
-		exit 0
+		shift;
+		continue;
 	fi
 
 
 
 	# In case of failure
-
+	FAILURE=1
 
 
 	#Verbose output when using CI
@@ -69,7 +71,13 @@ while (( "$#" )); do
 	shift
 done
 
+if [ $FAILURE -eq 0 ]; then
+	echo " OK"
+	exit 0
+fi
+
 #All seeds failed
+
 	echo " FAIL ಠ_ಠ" | tee -a $BASENAME.$RANDOMSEED.faillog;
 
 # We do not want Make to stop -> Return 0
