@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = app-rpl-ping-pong app-rpl
+CONTIKI_PROJECT = app-rpl-ping-pong
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
 TARGET ?= sky
 

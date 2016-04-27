@@ -52,7 +52,7 @@
 #include "net/rpl/rpl-ns.h"
 #include "net/packetbuf.h"
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #include <limits.h>
@@ -110,7 +110,7 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
     if(RPL_IS_STORING(instance)) {
       route = uip_ds6_route_lookup(&UIP_IP_BUF->destipaddr);
       if(route != NULL) {
-        uip_ds6_route_rm(route);
+        uip_ds6_route_rm(route, "rpl fw error");
       }
     }
     RPL_STAT(rpl_stats.forward_errors++);

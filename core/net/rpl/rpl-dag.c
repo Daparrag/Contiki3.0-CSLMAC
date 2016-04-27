@@ -926,11 +926,11 @@ rpl_select_parent(rpl_dag_t *dag)
       dag->instance->urgent_probing_target = best;
       rpl_schedule_probing(dag->instance);
 #endif /* RPL_WITH_PROBING */
-#else /* RPL_SIWTCH_IFF_FRESH */
-      rpl_set_preferred_parent(dag, best);
-      dag->rank = rpl_rank_via_parent(dag->preferred_parent);
-#endif /* RPL_SIWTCH_IFF_FRESH */
     }
+#else /* RPL_SIWTCH_IFF_FRESH */
+    rpl_set_preferred_parent(dag, best);
+    dag->rank = rpl_rank_via_parent(dag->preferred_parent);
+#endif /* RPL_SIWTCH_IFF_FRESH */
   } else {
     rpl_set_preferred_parent(dag, NULL);
   }
@@ -1378,10 +1378,10 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
 
   if(RPL_IS_STORING(instance)
       && uip_ds6_route_is_nexthop(rpl_get_parent_ipaddr(p))
-      && !rpl_parent_is_reachable(p) && instance->mop > RPL_MOP_NON_STORING) {
-    PRINTF("RPL: Unacceptable link %u, removing routes via: ", rpl_get_parent_link_metric(p));
-    PRINT6ADDR(rpl_get_parent_ipaddr(p));
-    PRINTF("\n");
+      && !rpl_parent_is_reachable(p)) {
+    printf("RPL: Unacceptable link %u, removing routes via: ", rpl_get_parent_link_metric(p));
+    uip_debug_ipaddr_print(rpl_get_parent_ipaddr(p));
+    printf("\n");
     rpl_remove_routes_by_nexthop(rpl_get_parent_ipaddr(p), p->dag);
   }
 

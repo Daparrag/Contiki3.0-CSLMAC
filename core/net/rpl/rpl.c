@@ -142,7 +142,7 @@ rpl_purge_routes(void)
       /* Routes with lifetime == 1 have only just been decremented from 2 to 1,
        * thus we want to keep them. Hence < and not <= */
       uip_ipaddr_copy(&prefix, &r->ipaddr);
-      uip_ds6_route_rm(r);
+      uip_ds6_route_rm(r, "RPL purge");
       r = uip_ds6_route_head();
       PRINTF("No more routes to ");
       PRINT6ADDR(&prefix);
@@ -187,7 +187,7 @@ rpl_remove_routes(rpl_dag_t *dag)
 
   while(r != NULL) {
     if(r->state.dag == dag) {
-      uip_ds6_route_rm(r);
+      uip_ds6_route_rm(r, "RPL remove");
       r = uip_ds6_route_head();
     } else {
       r = uip_ds6_route_next(r);
@@ -217,12 +217,17 @@ rpl_remove_routes_by_nexthop(uip_ipaddr_t *nexthop, rpl_dag_t *dag)
 
   while(r != NULL) {
     if(uip_ipaddr_cmp(uip_ds6_route_nexthop(r), nexthop) &&
+        r->state.dag == dag) {
+      r->state.lifetime = 0;
+      r = uip_ds6_route_next(r);
+    }
+    /*if(uip_ipaddr_cmp(uip_ds6_route_nexthop(r), nexthop) &&
        r->state.dag == dag) {
-      uip_ds6_route_rm(r);
+      uip_ds6_route_rm(r, "RPL remove by nexthop");
       r = uip_ds6_route_head();
     } else {
       r = uip_ds6_route_next(r);
-    }
+    }*/
   }
   ANNOTATE("#L %u 0\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
 }

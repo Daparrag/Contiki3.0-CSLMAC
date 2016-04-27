@@ -51,12 +51,13 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#define SEND_INTERVAL   (CLOCK_SECOND)
+#define START_DELAY (5 * 60 * CLOCK_SECOND)
+#define SEND_INTERVAL   (CLOCK_SECOND/2)
 #define WITH_PONG 0
 #define UDP_PORT 1234
 
-#define TARGET_NODES (MAX_NODES/2)
-//#define TARGET_NODES 100
+#define TARGET_NODES (MAX_NODES-30)
+//#define TARGET_NODES 50
 
 static struct simple_udp_connection unicast_connection;
 
@@ -240,6 +241,9 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
 #endif
 
   if(node_id == ROOT_ID) {
+    etimer_set(&periodic_timer, START_DELAY);
+    PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
       if(default_instance != NULL && (uip_ds6_route_num_routes() > TARGET_NODES

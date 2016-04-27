@@ -133,12 +133,16 @@ def parseApp(line, time, id, log, packetInfo, asnInfo):
 def parseRPL(line, time, id, log, packetInfo, asnInfo):
     global nodeState
 
+#---- RPL: parent switch -------------------------------------------------------------------------------------------------------------    
+    if log.startswith("parent switch"):
+        return {'event': 'parentSwitch'}
+
 #---- RPL: DAO -------------------------------------------------------------------------------------------------------------    
-    if "Sending DAO" in log:
+    if "Sending a DAO with" in log:
         return {'event': 'sendingDAO'}
 
 #---- RPL: No-Path DAO -------------------------------------------------------------------------------------------------------------
-    if "Sending No-Path DAO" in log:
+    if "Sending a No-Path DAO with" in log:
         return {'event': 'sendingNoPathDAO'}
 
 #---- RPL: multicast DIO -------------------------------------------------------------------------------------------------------------        
@@ -153,15 +157,17 @@ def parseRPL(line, time, id, log, packetInfo, asnInfo):
     if "Sending a DIS" in log:
         return {'event': 'sendingDIS'}
 
-#---- RPL: parent switch -------------------------------------------------------------------------------------------------------------    
+#---- RPL: no route found -------------------------------------------------------------------------------------------------------------    
     if "no route found" in log:
         if packetInfo != None:
         	doAppDrop(packetInfo['id'], 'noRouteFound')
         return {'event': 'noRouteFound'}
-
-#---- RPL: parent switch -------------------------------------------------------------------------------------------------------------    
-    if log.startswith("parent switch"):
-        return {'event': 'parentSwitch'}
+    
+#---- RPL: fw error -------------------------------------------------------------------------------------------------------------    
+    if "Rank error signalled in RPL option" in log:
+        if packetInfo != None:
+            doAppDrop(packetInfo['id'], 'fwError')
+        return {'event': 'fwError'}
     
 #---- RPL: state overview  -------------------------------------------------------------------------------------------------------------
     res = re.compile('MOP \d OCP \d rank (\d+) dioint (\d+), nbr count (\d+)').match(log)
@@ -451,6 +457,7 @@ def doParse(file, sinkId):
     linesParsedCount = 0
     
     for line in open(file, 'r').readlines():
+    #for line in open(file, 'r').readlines()[:1000000]:
     #for line in open(file, 'r').readlines()[-20000:]:
         log = None
         module = None
@@ -540,15 +547,15 @@ def doParse(file, sinkId):
             #if asnInfo != None:
                 #continue
 
-            if moduleInfo == None:
-                #print "Could not parse: ", line
-                continue
-    
             if not id in allNodeIDs:
                 allNodeIDs.append(id)
             if module == "App":
                 if not id in nodeIDs:
                     nodeIDs.append(id)
+
+            if moduleInfo == None:
+                #print "Could not parse: ", line
+                continue
     
             linesParsedCount += 1
             lineData = {'time': time, 'id': id, 'module': module, 'log': log, 'packet': packetInfo, 'info': moduleInfo}

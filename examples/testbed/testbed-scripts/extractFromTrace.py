@@ -631,6 +631,13 @@ def process(parsed):
                         MIN_INTERVAL, verbose=True, revert=True)
         )
         allPlottableData.append( 
+            extractData(parsed, "FW Error", "%",
+                        lambda x: x['module'] == 'App' and 'sending' in x['info'],
+                        lambda x: 100 if not x['info']['received'] and "fwError" in x['info'] else 0,
+                        {'min': 0, 'max': 0},
+                        MIN_INTERVAL, verbose=True, revert=True)
+        )
+        allPlottableData.append( 
             extractData(parsed, "Nbr Cache Miss or Incomplete", "%",
                         lambda x: x['module'] == 'App' and 'sending' in x['info'],
                         lambda x: 100 if not x['info']['received'] and "nbrCachePb" in x['info'] else 0,
@@ -644,6 +651,7 @@ def process(parsed):
                           and not "macDrop" in x['info']
                           and not "macError" in x['info']
                           and not "noRouteFound" in x['info']
+                          and not "fwError" in x['info']
                           and not "nbrCachePb" in x['info']
                           else 0,
                         {'min': 0, 'max': 0},
@@ -700,13 +708,13 @@ def process(parsed):
                         {'min': 0, 'max': 100},
                         MIN_INTERVAL, debug=True)
         )
-        allPlottableData.append( 
-            extractData(parsed, "TSCH Unicast ACK Lost", "%",
-                        lambda x: x['module'] == 'TSCH' and x['info']['event'] == 'Tx' and x['info']['is_unicast'],
-                        lambda x: 100 if x['info']['status'] == 2 and x['info']['rxCount'] > 0 else 0,
-                        {'min': 0, 'max': 100},
-                        MIN_INTERVAL)
-        )
+        #allPlottableData.append( 
+        #    extractData(parsed, "TSCH Unicast ACK Lost", "%",
+         #               lambda x: x['module'] == 'TSCH' and x['info']['event'] == 'Tx' and x['info']['is_unicast'],
+          #              lambda x: 100 if x['info']['status'] == 2 and x['info']['rxCount'] > 0 else 0,
+                        #{'min': 0, 'max': 100},
+                        #MIN_INTERVAL)
+        #)
         #allPlottableData.append( 
          #   extractData(parsed, "TSCH Unicast lost (no contender)", "%",
           #              lambda x: x['module'] == 'TSCH' and x['info']['event'] == 'Tx' and x['info']['is_unicast'],
@@ -714,13 +722,13 @@ def process(parsed):
             #            {'min': 0, 'max': 100},
              #           MIN_INTERVAL)
         #)
-        allPlottableData.append( 
-            extractData(parsed, "TSCH Unicast lost (with contenders)", "%",
-                        lambda x: x['module'] == 'TSCH' and x['info']['event'] == 'Tx' and x['info']['is_unicast'],
-                        lambda x: 100 if x['info']['status'] == 2 and x['info']['rxCount'] == 0 and x['info']['contenderCount'] > 0 else 0,
-                        {'min': 0, 'max': 100},
-                        MIN_INTERVAL)
-        )
+        #allPlottableData.append( 
+         #   extractData(parsed, "TSCH Unicast lost (with contenders)", "%",
+          #              lambda x: x['module'] == 'TSCH' and x['info']['event'] == 'Tx' and x['info']['is_unicast'],
+           #             lambda x: 100 if x['info']['status'] == 2 and x['info']['rxCount'] == 0 and x['info']['contenderCount'] > 0 else 0,
+            #            {'min': 0, 'max': 100},
+             #           MIN_INTERVAL)
+        #)
 #        allPlottableData.append( 
 #            extractData(parsed, "TSCH Unicast Mean TxCount", "#",
 #                        lambda x: x['module'] == '6LoWPAN' and x['info']['event'] == 'sent'  and x['info']['is_unicast'],

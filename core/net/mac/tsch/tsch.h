@@ -172,8 +172,10 @@ extern const struct mac_driver tschmac_driver;
 
 /* The the TSCH join priority */
 void tsch_set_join_priority(uint8_t jp);
-/* The the period at which EBs are sent */
+/* The period at which EBs are sent */
 void tsch_set_eb_period(uint32_t period);
+/* The keep-alive timeout */
+void tsch_set_ka_timeout(uint32_t timeout);
 /* Set the node as PAN coordinator */
 void tsch_set_coordinator(int enable);
 /* Set the pan as secured or not */

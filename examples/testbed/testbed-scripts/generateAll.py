@@ -39,4 +39,4 @@ def extract(dir):
         
         print " done."
 
-extract('iotlab-batch6')
+extract('iotlab-batch10')

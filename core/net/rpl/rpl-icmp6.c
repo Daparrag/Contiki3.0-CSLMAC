@@ -104,6 +104,8 @@ UIP_ICMP6_HANDLER(dao_handler, ICMP6_RPL, RPL_CODE_DAO, dao_input);
 UIP_ICMP6_HANDLER(dao_ack_handler, ICMP6_RPL, RPL_CODE_DAO_ACK, dao_ack_input);
 /*---------------------------------------------------------------------------*/
 
+unsigned long dao_timestamp = 0;
+
 #if RPL_WITH_DAO_ACK
 static uip_ds6_route_t *
 find_route_entry_by_dao_ack(uint8_t seq)
@@ -311,9 +313,9 @@ dio_input(void)
   uip_ipaddr_copy(&from, &UIP_IP_BUF->srcipaddr);
 
   /* DAG Information Object */
-  PRINTF("RPL: Received a DIO from ");
-  PRINT6ADDR(&from);
-  PRINTF("\n");
+  //PRINTF("RPL: Received a DIO from ");
+  //PRINT6ADDR(&from);
+  //PRINTF("\n");
 
   buffer_length = uip_len - uip_l3_icmp_hdr_len;
 
@@ -887,7 +889,6 @@ fwd_dao:
                      ICMP6_RPL, RPL_CODE_DAO, buffer_length);
     }
     if(should_ack) {
-      PRINTF("RPL: Sending DAO ACK\n");
       uip_clear_buf();
       dao_ack_output(instance, &dao_sender_addr, sequence,
                      RPL_DAO_ACK_UNCONDITIONAL_ACCEPT);
@@ -992,7 +993,6 @@ dao_input_nonstoring(void)
   }
 
   if(flags & RPL_DAO_K_FLAG) {
-    PRINTF("RPL: Sending DAO ACK\n");
     uip_clear_buf();
     dao_ack_output(instance, &dao_sender_addr, sequence,
         RPL_DAO_ACK_UNCONDITIONAL_ACCEPT);
@@ -1066,7 +1066,7 @@ handle_dao_retransmission(void *ptr)
     }
 
     /* Perform local repair and hope to find another parent. */
-    rpl_local_repair(instance, "DAO retransmission");
+    rpl_local_repair(instance, "DAO never ACKed");
     return;
   }
 
@@ -1081,6 +1081,7 @@ handle_dao_retransmission(void *ptr)
              RPL_DAO_RETRANSMISSION_TIMEOUT / 2 +
              (random_rand() % (RPL_DAO_RETRANSMISSION_TIMEOUT / 2)),
 	     handle_dao_retransmission, parent);
+  dao_timestamp = clock_seconds();
 
   instance->my_dao_transmissions++;
   dao_output_target_seq(parent, &prefix,
@@ -1116,6 +1117,7 @@ dao_output(rpl_parent_t *parent, uint8_t lifetime)
     instance->my_dao_transmissions = 1;
     ctimer_set(&instance->dao_retransmit_timer, RPL_DAO_RETRANSMISSION_TIMEOUT,
  	       handle_dao_retransmission, parent);
+    dao_timestamp = clock_seconds();
   }
 #else
    /* We know that we have tried to register so now we are assuming
@@ -1288,7 +1290,7 @@ dao_ack_input(void)
    status < 128 ? "ACK" : "NACK",
 	 sequence, instance->my_dao_seqno, status);
   PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-  PRINTF("\n");
+  PRINTF(" after %u seconds and %u attempts\n", clock_seconds() - dao_timestamp, instance->my_dao_transmissions);
 
   if(sequence == instance->my_dao_seqno) {
     instance->has_downward_route = status < 128;
@@ -1307,11 +1309,11 @@ dao_ack_input(void)
        * Failed the DAO transmission - need to remove the default route.
        * Trigger a local repair since we can not get our DAO in.
        */
-      rpl_local_repair(instance);
+      rpl_local_repair(instance, "DAO_NACK");
     }
 #endif
 
-  } else {
+  } else if(RPL_IS_STORING(instance)) {
     /* this DAO ACK should be forwarded to another recently registered route */
     uip_ds6_route_t *re;
     uip_ipaddr_t *nexthop;
@@ -1333,7 +1335,7 @@ dao_ack_input(void)
 
       if(status >= RPL_DAO_ACK_UNABLE_TO_ACCEPT) {
         /* this node did not get in to the routing tables above... - remove */
-        uip_ds6_route_rm(re);
+        uip_ds6_route_rm(re, "DAO NACK");
       }
     } else {
       PRINTF("RPL: No route entry found to forward DAO ACK (seqno %u)\n", sequence);
