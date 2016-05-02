@@ -51,6 +51,7 @@
 #include <stdio.h>
 #include <stddef.h> /* for offsetof */
 
+#include "contiki-conf.h"
 #include "net/rime/rime.h"
 #include "net/rime/polite.h"
 #include "net/rime/rudolph2.h"

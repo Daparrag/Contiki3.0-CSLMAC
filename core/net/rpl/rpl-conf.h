@@ -45,6 +45,10 @@
 #define RPL_CONF_STATS 0
 #endif /* RPL_CONF_STATS */
 
+#ifndef RPL_CONF_FIXLOOP
+#define RPL_CONF_FIXLOOP 1
+#endif /* RPL_CONF_FIXLOOP */
+
 /*
  * The objective function (OF) used by a RPL root is configurable through
  * the RPL_CONF_OF_OCP parameter. This is defined as the objective code

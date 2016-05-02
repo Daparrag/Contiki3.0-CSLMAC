@@ -65,6 +65,12 @@
 #define TSCH_LOG_LEVEL 2
 #endif /* TSCH_LOG_CONF_LEVEL */
 
+#ifdef TSCH_LOG_CONF_ALL_RX
+#define TSCH_LOG_ALL_RX TSCH_LOG_CONF_ALL_RX
+#else /* TSCH_LOG_CONF_LEVEL */
+#define TSCH_LOG_ALL_RX 1
+#endif /* TSCH_LOG_CONF_LEVEL */
+
 #if TSCH_LOG_LEVEL < 2 /* For log level 0 or 1, the logging functions do nothing */
 
 #define tsch_log_init()
@@ -86,7 +92,9 @@ struct tsch_log_t {
   union {
     char message[48];
     struct {
+#if WITH_LOG
       struct app_data appdata;
+#endif
       int mac_tx_status;
       int dest;
       int drift;
@@ -97,7 +105,12 @@ struct tsch_log_t {
       uint8_t drift_used;
     } tx;
     struct {
+#if WITH_LOG
       struct app_data appdata;
+#endif
+#if WITH_RSSI_LOG
+      int rssi;
+#endif
       int src;
       int drift;
       int estimated_drift;

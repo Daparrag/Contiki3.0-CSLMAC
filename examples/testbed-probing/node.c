@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2016, Inria.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,63 +29,51 @@
  * This file is part of the Contiki operating system.
  *
  */
+
 /**
  * \file
- *         A set of debugging macros for the netstack
- *
- * \author Nicolas Tsiftes <nvt@sics.se>
- *         Niclas Finne <nfi@sics.se>
- *         Joakim Eriksson <joakime@sics.se>
+ *         An example of Rime/TSCH
+ * \author
  *         Simon Duquennoy <simon.duquennoy@inria.fr>
+ *
  */
 
-#ifndef NET_DEBUG_H
-#define NET_DEBUG_H
-
-#include "contiki-conf.h"
-#include "net/ip/uip.h"
-#include "net/linkaddr.h"
 #include <stdio.h>
+#include "contiki-conf.h"
+#include "net/netstack.h"
+#include "net/rime/rime.h"
+#include "net/linkaddr.h"
+#include "net/mac/tsch/tsch.h"
+#include "orchestra-conf.h"
 
-void net_debug_lladdr_print(const uip_lladdr_t *addr);
+/*---------------------------------------------------------------------------*/
+PROCESS(unicast_test_process, "Rime Node");
+AUTOSTART_PROCESSES(&unicast_test_process);
 
-#define DEBUG_NONE      0
-#define DEBUG_PRINT     1
-#define DEBUG_ANNOTATE  2
-#define DEBUG_FULL      DEBUG_ANNOTATE | DEBUG_PRINT
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(unicast_test_process, ev, data)
+{
+  //static struct etimer periodic_timer;
 
-/* PRINTA will always print if the debug routines are called directly */
-#ifdef __AVR__
-#include <avr/pgmspace.h>
-#define PRINTA(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
-#else
-#define PRINTA(...) printf(__VA_ARGS__)
-#endif
+  PROCESS_BEGIN();
 
-#if (DEBUG) & DEBUG_ANNOTATE
-#ifdef __AVR__
-#define ANNOTATE(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
-#else
-#define ANNOTATE(...) printf(__VA_ARGS__)
-#endif
-#else
-#define ANNOTATE(...)
-#endif /* (DEBUG) & DEBUG_ANNOTATE */
+  tsch_set_coordinator(node_id_from_linkaddr(&linkaddr_node_addr) == ROOT_ID);
+  NETSTACK_MAC.on();
 
-#if (DEBUG) & DEBUG_PRINT
-#ifdef __AVR__
-#define PRINTF(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
-#else
-#define PRINTF(...) printf(__VA_ARGS__)
-#endif
-#if WITH_LOG
-#define PRINTLLADDR(lladdr) printf("%u", LOG_ID_FROM_LINKADDR(lladdr));
-#else
-#define PRINTLLADDR(lladdr) net_debug_lladdr_print(lladdr)
-#endif /* WITH_LOG */
-#else
-#define PRINTF(...)
-#define PRINTLLADDR(lladdr)
-#endif /* (DEBUG) & DEBUG_PRINT */
+  orchestra_init();
 
-#endif /* NET_DEBUG_H */
+/*
+  etimer_set(&periodic_timer, 1 * CLOCK_SECOND);
+  while(1) {
+    printf("My MAC address: ");
+    net_debug_lladdr_print((const uip_lladdr_t *)&linkaddr_node_addr);
+    printf(" node ID: %u, coodrinator %u\n",
+        node_id_from_linkaddr(&linkaddr_node_addr), node_id_from_linkaddr(&linkaddr_node_addr) == ROOT_ID);
+    PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+    etimer_reset(&periodic_timer);
+  }
+*/
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/

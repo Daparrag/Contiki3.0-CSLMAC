@@ -82,13 +82,6 @@ struct seqno {
   uint8_t seqno;
 };
 
-/* Size of the sequence number history */
-#ifdef NETSTACK_CONF_MAC_SEQNO_HISTORY
-#define MAX_SEQNOS NETSTACK_CONF_MAC_SEQNO_HISTORY
-#else /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
-#define MAX_SEQNOS 8
-#endif /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
-
 /* Let TSCH select a time source with no help of an upper layer.
  * We do so using statistics from incoming EBs */
 #if TSCH_AUTOSELECT_TIME_SOURCE
@@ -759,7 +752,6 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
         /* Prepare the EB packet and schedule it to be sent */
         packetbuf_clear();
         packetbuf_set_attr(PACKETBUF_ATTR_FRAME_TYPE, FRAME802154_BEACONFRAME);
-        packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
 #if LLSEC802154_ENABLED
         if(tsch_is_pan_secured) {
           /* Set security level, key id and index */
@@ -940,7 +932,12 @@ send_packet(mac_callback_t sent, void *ptr)
     /* Enqueue packet */
     p = tsch_queue_add_packet(addr, sent, ptr);
     if(p == NULL) {
-      LOGP("TSCH:! can't send packet !tsch_queue_add_packet");
+      LOGP("TSCH:! can't send packet to %u with seqno %u, queue %u %u, len %u %u",
+          TSCH_LOG_ID_FROM_LINKADDR(addr), tsch_packet_seqno,
+          packet_count_before,
+          tsch_queue_packet_count(addr),
+          p->header_len,
+          queuebuf_datalen(p->qb));
       ret = MAC_TX_ERR;
     } else {
       p->header_len = hdr_len;
@@ -975,10 +972,11 @@ packet_input(void)
       /* Check for duplicates */
       duplicate = mac_sequence_is_duplicate();
       if(duplicate) {
+        extern clock_time_t duplicate_age;
         /* Drop the packet. */
-        LOGP("TSCH:! drop dup ll from %u seqno %u",
+        LOGP("TSCH:! drop dup ll from %u seqno %u age %u",
                          TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
-                         packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO));
+                         packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO), (unsigned)duplicate_age);
       } else {
         mac_sequence_register_seqno();
       }

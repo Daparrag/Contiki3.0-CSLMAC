@@ -95,6 +95,8 @@ static volatile int cca_pending;
 static uint8_t volatile poll_mode = 0;
 /* SFD timestamp of last incoming packet */
 static rtimer_clock_t sfd_start_time;
+/* Last packet RSSI */
+static int8_t last_rssi = 0;
 
 static int read(uint8_t *buf, uint8_t buf_len);
 static void listen(void);
@@ -517,6 +519,10 @@ get_value(radio_param_t param, radio_value_t *value)
   case RADIO_PARAM_CHANNEL:
     *value = get_channel();
     return RADIO_RESULT_OK;
+  case RADIO_PARAM_LAST_RSSI:
+    /* RSSI of the last packet received */
+    *value = (radio_value_t)last_rssi;
+    return RADIO_RESULT_OK;
   default:
     return RADIO_RESULT_NOT_SUPPORTED;
   }
@@ -902,6 +908,8 @@ static int read(uint8_t *buf, uint8_t buf_len)
 
     // Read payload
     rf2xx_fifo_read_remaining(RF2XX_DEVICE, buf, len);
+
+    last_rssi = -91 + rf2xx_reg_read(rf231, RF2XX_REG__PHY_ED_LEVEL);
 
 #ifdef RF2XX_LEDS_ON
         leds_off(LEDS_GREEN);

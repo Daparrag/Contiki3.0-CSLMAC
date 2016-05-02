@@ -133,12 +133,14 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
   sender_rank = UIP_HTONS(UIP_EXT_HDR_OPT_RPL_BUF->senderrank);
   sender = nbr_table_get_from_lladdr(rpl_parents, packetbuf_addr(PACKETBUF_ADDR_SENDER));
 
+#if RPL_CONF_FIXLOOP
   if(sender != NULL && (UIP_EXT_HDR_OPT_RPL_BUF->flags & RPL_HDR_OPT_RANK_ERR)) {
     /* A rank error was signalled, attempt to repair it by updating
      * the sender's rank from ext header */
     sender->rank = sender_rank;
     rpl_select_dag(instance, sender);
   }
+#endif /* RPL_CONF_FIXLOOP */
 
   sender_closer = sender_rank < instance->current_dag->rank;
 
@@ -152,12 +154,14 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
     PRINTF("RPL: Loop detected - senderrank: %d my-rank: %d sender_closer: %d\n",
 	   sender_rank, instance->current_dag->rank,
 	   sender_closer);
+#if RPL_CONF_FIXLOOP
     /* Attempt to repair the loop by sending a unicast DIO back to the sender
      * so that it gets a fresh update of our rank. */
     if(sender != NULL) {
       instance->unicast_dio_target = sender;
       rpl_schedule_unicast_dio_immediately(instance);
     }
+#endif /* RPL_CONF_FIXLOOP */
     if(UIP_EXT_HDR_OPT_RPL_BUF->flags & RPL_HDR_OPT_RANK_ERR) {
       RPL_STAT(rpl_stats.loop_errors++);
       PRINTF("RPL: Rank error signalled in RPL option!\n");

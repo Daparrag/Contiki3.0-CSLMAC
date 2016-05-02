@@ -42,6 +42,7 @@
  * @{
  */
 
+#include "contiki-conf.h"
 #include "net/rime/announcement.h"
 #include "lib/list.h"
 #include "sys/cc.h"

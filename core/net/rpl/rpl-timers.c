@@ -480,10 +480,6 @@ handle_probing_timer(void *ptr)
 
   /* Schedule next probing */
   rpl_schedule_probing(instance);
-
-#if DEBUG
-  rpl_print_neighbor_list();
-#endif
 }
 /*---------------------------------------------------------------------------*/
 void

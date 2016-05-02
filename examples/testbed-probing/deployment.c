@@ -38,7 +38,6 @@
 #include "contiki-conf.h"
 #include "deployment.h"
 #include "sys/node-id.h"
-#include "net/rpl/rpl.h"
 #include "net/mac/tsch/tsch.h"
 #include "net/ip/uip-debug.h"
 #include "random.h"
@@ -47,8 +46,6 @@
 #if CONTIKI_TARGET_SKY || CONTIKI_TARGET_Z1
 #include "cc2420.h"
 #endif
-
-#if WITH_DEPLOYMENT
 
 #if IN_COOJA
 #pragma message "deployment.c: compiling with flag IN_COOJA"
@@ -69,59 +66,20 @@
 #pragma message "deployment.c: compiling with flag IN_IOTLAB"
 #endif
 
-#if RPL_CONFIG == CONFIG_STORING
-#pragma message "deployment.c: compiling with RPL storing mode"
-#elif RPL_CONFIG == CONFIG_NON_STORING
-#pragma message "deployment.c: compiling with RPL non-storing mode"
-#endif
-
-#if RPL_CONF_WITH_PROBING
-#pragma message "deployment.c: compiling with RPL probing"
-#endif
-#if RPL_MRHOF_CONF_SQUARED_ETX
-#pragma message "deployment.c: compiling with RPL squared ETX"
-#endif
-#if RPL_CONF_SIWTCH_IFF_FRESH
-#pragma message "deployment.c: compiling with RPL conservative parent switching"
-#endif
-#if RSSI_BASED_ETX
-#pragma message "deployment.c: compiling with RPL RSSI-based ETX"
-#endif
-#if RPL_CONF_WITH_DAO_ACK
-#pragma message "deployment.c: compiling with DAO ACK"
-#endif
-#if CONF_SMARTDUP
-#pragma message "deployment.c: compiling with smart duplicate detection"
-#endif
-#if RPL_CONF_FIXLOOP
-#pragma message "deployment.c: compiling with loop fixing"
-#endif
-
-#if TSCH_CONF_NCHANNELS == 4
-#pragma message "TSCH_CONF_NCHANNELS == 4"
-#endif
-#if TSCH_CONF_NCHANNELS == 16
-#pragma message "TSCH_CONF_NCHANNELS == 16"
-#endif
-
-
-#if TSCH_CONF_MAC_MAX_FRAME_RETRIES == 8
-#pragma message "TSCH_CONF_MAC_MAX_FRAME_RETRIES == 8"
-#endif
-#if TSCH_CONF_MAC_MAX_FRAME_RETRIES == 15
-#pragma message "TSCH_CONF_MAC_MAX_FRAME_RETRIES == 15"
-#endif
-
 /* Our absolute index in the id_mac table */
 uint16_t node_index = 0xffff;
 
 /* Our global IPv6 prefix */
 static uip_ipaddr_t prefix;
 
+typedef union {
+  unsigned char u8[8];
+} linkaddr_long_t;
+
 /* ID<->MAC address mapping */
 struct id_mac {
   uint16_t id;
-  linkaddr_t mac;
+  linkaddr_long_t mac;
 };
 
 /* List of ID<->MAC mapping used for different deployments */
@@ -419,7 +377,6 @@ static const struct id_mac id_mac_list[] = {
     {166, {{0x02,0x00,0x00,0x00,0x00,0x00,0x96,0x71}}},
     {167, {{0x02,0x00,0x00,0x00,0x00,0x00,0x18,0x62}}},
     {168, {{0x02,0x00,0x00,0x00,0x00,0x00,0x84,0x75}}},
-    {169, {{0x02,0x00,0x00,0x00,0x00,0x00,0xa2,0x76}}},
     {170, {{0x02,0x00,0x00,0x00,0x00,0x00,0xc0,0x76}}},
     {171, {{0x02,0x00,0x00,0x00,0x00,0x00,0x93,0x79}}},
     {172, {{0x02,0x00,0x00,0x00,0x00,0x00,0x96,0x78}}},
@@ -435,7 +392,7 @@ static const struct id_mac id_mac_list[] = {
     {182, {{0x02,0x00,0x00,0x00,0x00,0x00,0x99,0x68}}},
     {184, {{0x02,0x00,0x00,0x00,0x00,0x00,0x91,0x68}}},
     {186, {{0x02,0x00,0x00,0x00,0x00,0x00,0x89,0x79}}},
-    /*{187, {{0x02,0x00,0x00,0x00,0x00,0x00,0x95,0x71}}},*/
+    {187, {{0x02,0x00,0x00,0x00,0x00,0x00,0x95,0x71}}},
     {188, {{0x02,0x00,0x00,0x00,0x00,0x00,0x90,0x72}}},
     {189, {{0x02,0x00,0x00,0x00,0x00,0x00,0x94,0x80}}},
     {190, {{0x02,0x00,0x00,0x00,0x00,0x00,0xb8,0x82}}},
@@ -502,7 +459,6 @@ static const struct id_mac id_mac_list[] = {
     {252, {{0x02,0x00,0x00,0x00,0x00,0x00,0xb5,0x80}}},
     {253, {{0x02,0x00,0x00,0x00,0x00,0x00,0xc2,0x77}}},
     {254, {{0x02,0x00,0x00,0x00,0x00,0x00,0x89,0x82}}},
-    {256, {{0x02,0x00,0x00,0x00,0x00,0x00,0x16,0x60}}},
     {257, {{0x02,0x00,0x00,0x00,0x00,0x00,0xb6,0x68}}},
     {258, {{0x02,0x00,0x00,0x00,0x00,0x00,0x18,0x60}}},
     {259, {{0x02,0x00,0x00,0x00,0x00,0x00,0xa5,0x80}}},
@@ -593,7 +549,7 @@ static const struct id_mac id_mac_list[] = {
     {348, {{0x02,0x00,0x00,0x00,0x00,0x00,0x98,0x68}}},
     {349, {{0x02,0x00,0x00,0x00,0x00,0x00,0x25,0x53}}},
     {350, {{0x02,0x00,0x00,0x00,0x00,0x00,0x85,0x70}}},
-    /*{352, {{0x02,0x00,0x00,0x00,0x00,0x00,0x88,0x70}}},*/
+    {352, {{0x02,0x00,0x00,0x00,0x00,0x00,0x88,0x70}}},
     {353, {{0x02,0x00,0x00,0x00,0x00,0x00,0x92,0x67}}},
     {354, {{0x02,0x00,0x00,0x00,0x00,0x00,0x93,0x67}}},
     {355, {{0x02,0x00,0x00,0x00,0x00,0x00,0xb4,0x79}}},
@@ -678,12 +634,8 @@ get_node_id()
 static void
 lladdr_from_ipaddr_uuid(uip_lladdr_t *lladdr, const uip_ipaddr_t *ipaddr)
 {
-#if (UIP_LLADDR_LEN == 8)
   memcpy(lladdr, ipaddr->u8 + 8, UIP_LLADDR_LEN);
   lladdr->addr[0] ^= 0x02;
-#else
-#error orpl.c supports only EUI-64 identifiers
-#endif
 }
 /* Returns a node-index from a node's linkaddr */
 uint16_t
@@ -702,7 +654,7 @@ node_index_from_linkaddr(const linkaddr_t *addr)
   const struct id_mac *curr = id_mac_list;
   while(curr->id != 0) {
     /* Assume network-wide unique 16-bit MAC addresses */
-    if(curr->mac.u8[6] == addr->u8[6] && curr->mac.u8[7] == addr->u8[7]) {
+    if(curr->mac.u8[6] == addr->u8[0] && curr->mac.u8[7] == addr->u8[1]) {
       return nodex_index_map(curr - id_mac_list);
     }
     curr++;
@@ -718,7 +670,7 @@ node_id_from_linkaddr(const linkaddr_t *addr)
   if(addr == NULL) {
     return 0;
   } else {
-    return addr->u8[7];
+    return addr->u8[0];
   }
 #else /* IN_COOJA */
   if(addr == NULL) {
@@ -727,7 +679,7 @@ node_id_from_linkaddr(const linkaddr_t *addr)
   const struct id_mac *curr = id_mac_list;
   while(curr->id != 0) {
     /* Assume network-wide unique 16-bit MAC addresses */
-    if(curr->mac.u8[6] == addr->u8[6] && curr->mac.u8[7] == addr->u8[7]) {
+    if(curr->mac.u8[6] == addr->u8[0] && curr->mac.u8[7] == addr->u8[1]) {
       return curr->id;
     }
     curr++;
@@ -760,83 +712,3 @@ get_node_index_from_id(uint16_t id)
   return 0xffff;
 #endif
 }
-/* Sets an IPv6 from a node-id */
-void
-set_ipaddr_from_id(uip_ipaddr_t *ipaddr, uint16_t id)
-{
-  linkaddr_t lladdr;
-  memcpy(ipaddr, &prefix, 8);
-  set_linkaddr_from_id(&lladdr, id);
-  uip_ds6_set_addr_iid(ipaddr, (uip_lladdr_t *)&lladdr);
-}
-/* Sets an linkaddr from a link-layer address */
-/* Sets a linkaddr from a node-id */
-void
-set_linkaddr_from_id(linkaddr_t *lladdr, uint16_t id)
-{
-#if IN_COOJA
-  lladdr->u8[0] = 0xc1;
-  lladdr->u8[1] = 0x0c;
-  lladdr->u8[2] = 0x00;
-  lladdr->u8[3] = 0x00;
-  lladdr->u8[4] = 0x00;
-  lladdr->u8[5] = 0x00;
-  lladdr->u8[6] = 0x00;
-  lladdr->u8[7] = id;
-#else
-  if(id == 0 || lladdr == NULL) {
-    return;
-  }
-  const struct id_mac *curr = id_mac_list;
-  while(curr->id != 0) {
-    if(curr->id == id) {
-      linkaddr_copy(lladdr, &curr->mac);
-      return;
-    }
-    curr++;
-  }
-#endif
-}
-/* Initializes global IPv6 and creates DODAG */
-int
-deployment_init(uip_ipaddr_t *ipaddr, uip_ipaddr_t *br_prefix, int root_id)
-{
-  rpl_dag_t *dag;
-  
-  node_id_restore();
-  node_index = get_node_index_from_id(node_id);
-
-  if(node_id == 0) {
-    NETSTACK_RADIO.off();
-    NETSTACK_RDC.off(0);
-    NETSTACK_MAC.off(0);
-    return 0;
-  }
-  
-  if(!br_prefix) {
-    uip_ip6addr(&prefix, 0xfd00, 0, 0, 0, 0, 0, 0, 0);
-  } else {
-    memcpy(&prefix, br_prefix, 16);
-  }
-  set_ipaddr_from_id(ipaddr, node_id);
-  uip_ds6_addr_add(ipaddr, 0, ADDR_AUTOCONF);
-
-  if(WITH_RPL && node_id == root_id) {
-    rpl_set_root(RPL_DEFAULT_INSTANCE, ipaddr);
-    dag = rpl_get_any_dag();
-    rpl_set_prefix(dag, &prefix, 64);
-    /* If an RDC layer is used, turn it off (i.e. keep the radio on at the root) */
-    NETSTACK_RDC.off(1);
-  }
-
-#if WITH_LOG
-  log_start();
-#endif /* WITH_LOG */
-
-  NETSTACK_MAC.on();
-
-  return 1;
-}
-
-#endif /* WITH_DEPLOYMENT */
-

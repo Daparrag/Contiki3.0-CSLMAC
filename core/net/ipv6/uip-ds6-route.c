@@ -364,6 +364,7 @@ uip_ds6_route_add(uip_ipaddr_t *ipaddr, uint8_t length,
       PRINTF("uip_ds6_route_add: dropping route to ");
       PRINT6ADDR(&oldest->ipaddr);
       PRINTF("\n");
+      printf("RPL ST: removing route to %u\n", LOG_ID_FROM_IPADDR(&oldest->ipaddr));
       uip_ds6_route_rm(oldest, "uip_ds6_route_add2");
     }
 
@@ -442,6 +443,8 @@ uip_ds6_route_add(uip_ipaddr_t *ipaddr, uint8_t length,
   memset(&r->state, 0, sizeof(UIP_DS6_ROUTE_STATE_TYPE));
 #endif
 
+  printf("RPL ST: adding route to %u via %u\n", LOG_ID_FROM_IPADDR(ipaddr), LOG_ID_FROM_IPADDR(nexthop));
+
   PRINTF("uip_ds6_route_add: adding route: ");
   PRINT6ADDR(ipaddr);
   PRINTF(" via ");
@@ -475,13 +478,13 @@ uip_ds6_route_rm(uip_ds6_route_t *route, const char *str)
   assert_nbr_routes_list_sane();
 #endif /* DEBUG != DEBUG_NONE */
   if(route != NULL && route->neighbor_routes != NULL) {
-    uip_ipaddr_t *nexthop = uip_ds6_route_nexthop(route);
+    //uip_ipaddr_t *nexthop = uip_ds6_route_nexthop(route);
 
     PRINTF("uip_ds6_route_rm: removing route: ");
     PRINT6ADDR(&route->ipaddr);
     PRINTF(" \n");
 
-    printf("uip_ds6_route: -- removing route to %u via %u (%s)\n", LOG_ID_FROM_IPADDR(&route->ipaddr), LOG_ID_FROM_IPADDR(nexthop), str);
+    printf("RPL ST: removing route to %u\n", LOG_ID_FROM_IPADDR(&route->ipaddr));
 
     /* Remove the route from the route list */
     list_remove(routelist, route);

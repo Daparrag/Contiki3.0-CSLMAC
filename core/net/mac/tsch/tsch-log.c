@@ -85,6 +85,14 @@ tsch_log_process_pending(void)
   while((log_index = ringbufindex_peek_get(&log_ringbuf)) != -1) {
     struct tsch_log_t *log = &log_array[log_index];
     struct tsch_slotframe *sf = tsch_schedule_get_slotframe_by_handle(log->link->slotframe_handle);
+
+#if WITH_TSCH_LOG_13
+    if(log->asn.ls4b % 13 != 0) {
+      ringbufindex_get(&log_ringbuf);
+      continue;
+    }
+#endif /* WITH_TSCH_LOG_13 */
+
     printf("TSCH: {asn-%x.%lx link-%u-%u-%u-%u ch-%u} ",
         log->asn.ms1b, log->asn.ls4b,
         log->link->slotframe_handle, sf ? sf->size.val : 0, log->link->timeslot, log->link->channel_offset,
@@ -99,7 +107,11 @@ tsch_log_process_pending(void)
         if(log->tx.drift_used) {
           printf(", dr %d", log->tx.drift);
         }
+#if WITH_LOG
         LOGA_(&log->tx.appdata);
+#else
+        printf("\n");
+#endif
         break;
       case tsch_log_rx:
         printf("%s-%u-%u %u rx %d",
@@ -110,7 +122,14 @@ tsch_log_process_pending(void)
           printf(", dr %d", log->rx.drift);
         }
         printf(", edr %d", (int)log->rx.estimated_drift);
+#if WITH_RSSI_LOG
+        printf(", rssi %d", (int)log->rx.rssi);
+#endif
+#if WITH_LOG
         LOGA_(&log->tx.appdata);
+#else
+        printf("\n");
+#endif
         break;
       case tsch_log_message:
         printf("%s\n", log->message);

@@ -43,70 +43,65 @@
 #include "net/mac/tsch/tsch-schedule.h"
 #include "lib/random.h"
 #include "net/mac/tsch/tsch-rpl.h"
+#include "net/mac/tsch/tsch.h"
+#include "net/mac/tsch/tsch-private.h"
 #include "deployment.h"
 #include "simple-udp.h"
 #include <stdio.h>
 //#include "orchestra.h"
 
-static struct simple_udp_connection unicast_connection;
-
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-/*---------------------------------------------------------------------------*/
-PROCESS(unicast_sender_process, "RPL Application");
-AUTOSTART_PROCESSES(&unicast_sender_process);
+//#define START_DELAY (2 * 60 * CLOCK_SECOND)
+#define START_DELAY (2 * 5 * CLOCK_SECOND)
+#define ASN_STEP (100 * 60)
 
+static struct asn_t next_asn;
+static int count = 0;
+
+/*---------------------------------------------------------------------------*/
+PROCESS(app_rpl_process, "RPL Application");
+AUTOSTART_PROCESSES(&app_rpl_process);
 
 /*---------------------------------------------------------------------------*/
 static void
-print_network_status(void)
+print_network_status(int count)
 {
-  int i;
-  uint8_t state;
   uip_ds6_defrt_t *default_route;
-  uip_ds6_route_t *route;
-  rpl_ns_node_t *link;
 
-  PRINTF("--- Network status ---\n");
-
-  /* Our IPv6 addresses */
-  PRINTF("NetStatus: Server IPv6 addresses:\n");
-  for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
-    state = uip_ds6_if.addr_list[i].state;
-    if(uip_ds6_if.addr_list[i].isused &&
-       (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-      PRINTF("NetStatus: ");
-      PRINT6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
-      PRINTF("\n");
-    }
-  }
+  PRINTF("[%u] --- Network status --- (asn %lu %lu)\n", count, current_asn.ls4b, next_asn.ls4b);
 
   /* Our default route */
-  PRINTF("- Default route:\n");
+  PRINTF("[%u] - Default route:\n", count);
   default_route = uip_ds6_defrt_lookup(uip_ds6_defrt_choose());
   if(default_route != NULL) {
-    PRINTF("NetStatus: ");
+    PRINTF("[%u] NetStatus: ", count);
     PRINT6ADDR(&default_route->ipaddr);;
     PRINTF(" (lifetime: %lu seconds)\n", (unsigned long)default_route->lifetime.interval);
   } else {
-    PRINTF("\n");
+    PRINTF("[%u]\n", count);
   }
 
+#if RPL_WITH_STORING
   /* Our routing entries */
-  PRINTF("- Routing entries (%u in total):\n", uip_ds6_route_num_routes());
+  uip_ds6_route_t *route;
+  PRINTF("[%u] - Routing entries (%u in total):\n", count, uip_ds6_route_num_routes());
   route = uip_ds6_route_head();
   while(route != NULL) {
-    PRINTF("NetStatus: ");
+    PRINTF("[%u] NetStatus: ", count);
     PRINT6ADDR(&route->ipaddr);
     PRINTF(" via ");
     PRINT6ADDR(uip_ds6_route_nexthop(route));
     PRINTF(" (lifetime: %lu seconds)\n", (unsigned long)route->state.lifetime);
     route = uip_ds6_route_next(route);
   }
+#endif
 
+#if RPL_WITH_NON_STORING
   /* Our routing links */
-  PRINTF("- Routing links (%u in total):\n", rpl_ns_num_nodes());
+  rpl_ns_node_t *link;
+  PRINTF("[%u] - Routing links (%u in total):\n", count, rpl_ns_num_nodes());
   link = rpl_ns_node_head();
   while(link != NULL) {
     if(link->parent != NULL) {
@@ -114,7 +109,7 @@ print_network_status(void)
       uip_ipaddr_t parent_ipaddr;
       rpl_ns_get_node_global_addr(&child_ipaddr, link);
       rpl_ns_get_node_global_addr(&parent_ipaddr, link->parent);
-      PRINTF("NetStatus: ");
+      PRINTF("[%u] NetStatus: ", count);
       PRINT6ADDR(&child_ipaddr);
       PRINTF(" to ");
       PRINT6ADDR(&parent_ipaddr);
@@ -122,24 +117,35 @@ print_network_status(void)
     }
     link = rpl_ns_node_next(link);
   }
+#endif
 
-  PRINTF("----------------------\n");
+  PRINTF("[%u] ----------------------\n", count);
 }
+
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(unicast_sender_process, ev, data)
+PROCESS_THREAD(app_rpl_process, ev, data)
 {
   static struct etimer periodic_timer;
   uip_ipaddr_t global_ipaddr;
-  static uint32_t cnt = 0;
-  static uint32_t seqno;
 
   PROCESS_BEGIN();
 
+  etimer_set(&periodic_timer, START_DELAY);
+  PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+
   if(deployment_init(&global_ipaddr, NULL, ROOT_ID)) {
-    LOG("App: %u start\n", node_id);
+    //LOG("App: %u start\n", node_id);
   } else {
-    PROCESS_EXIT();
+    etimer_set(&periodic_timer, 60 * CLOCK_SECOND);
+    while(1) {
+      printf("Info: Not running. My MAC address: ");
+      net_debug_lladdr_print((const uip_lladdr_t *)&linkaddr_node_addr);
+      printf("\n");
+      PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+      etimer_reset(&periodic_timer);
+    }
   }
+
 #if WITH_TSCH
 #if WITH_ORCHESTRA
   orchestra_init();
@@ -148,13 +154,20 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
 #endif
 #endif
 
-  if(node_id == ROOT_ID) {
-    etimer_set(&periodic_timer, 30 * CLOCK_SECOND);
-    while(1) {
-      print_network_status();
-      PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
-      etimer_reset(&periodic_timer);
-    }
+  while(!tsch_is_associated) {
+    PROCESS_YIELD();
+  }
+
+  ASN_INIT(next_asn, 0, 0);
+
+  while(((int32_t)ASN_DIFF(current_asn, next_asn)) < 0) {
+    ASN_INC(next_asn, ASN_STEP);
+  }
+
+  while(1) {
+    ASN_INC(next_asn, ASN_STEP);
+    PROCESS_WAIT_UNTIL(((int32_t)ASN_DIFF(current_asn, next_asn)) >= 0);
+    print_network_status(count++);
   }
 
   PROCESS_END();

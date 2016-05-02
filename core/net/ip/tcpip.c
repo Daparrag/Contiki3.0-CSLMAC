@@ -65,6 +65,14 @@ void uip_log(char *msg);
 #define UIP_LOG(m)
 #endif
 
+/* Build a global link-layer address from an IPv6 based on its UUID64 */
+static void
+lladdr_from_ipaddr_uuid(uip_lladdr_t *lladdr, const uip_ipaddr_t *ipaddr)
+{
+  memcpy(lladdr, ipaddr->u8 + 8, UIP_LLADDR_LEN);
+  lladdr->addr[0] ^= 0x02;
+}
+
 #define UIP_ICMP_BUF ((struct uip_icmp_hdr *)&uip_buf[UIP_LLIPH_LEN + uip_ext_len])
 #define UIP_IP_BUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 #define UIP_TCP_BUF ((struct uip_tcpip_hdr *)&uip_buf[UIP_LLH_LEN])
@@ -601,8 +609,8 @@ tcpip_ipv6_output(void)
 	  }
 #else
           PRINTF("tcpip_ipv6_output: Destination off-link but no route\n");
-#endif /* !UIP_FALLBACK_INTERFACE */
           LOGU("Tcpip:! no route to %d, dropping", LOG_ID_FROM_IPADDR(&UIP_IP_BUF->destipaddr));
+#endif /* !UIP_FALLBACK_INTERFACE */
           uip_clear_buf();
           return;
         }
@@ -694,9 +702,17 @@ tcpip_ipv6_output(void)
         /* Send the first NS try from here (multicast destination IP address). */
       }
 #else /* UIP_ND6_SEND_NA */
-      LOGU("Tcpip:! next hop not in nbr cache");
-      uip_len = 0;
-      return;  
+
+      /* For testbed experimentation only: force addition of the neighbor. This is to bypass
+       * the initial phase of learning MAC-IP mappings and reach convergence faster. */
+      uip_lladdr_t lladdr;
+      lladdr_from_ipaddr_uuid(&lladdr, nexthop);
+      if((nbr = uip_ds6_nbr_add(nexthop, &lladdr,
+          0, NBR_REACHABLE, NBR_TABLE_REASON_TCPIP, NULL)) == NULL) {
+        LOGU("Tcpip:! next hop %u not in nbr cache", LOG_ID_FROM_IPADDR(nexthop));
+        uip_len = 0;
+        return;
+      }
 #endif /* UIP_ND6_SEND_NA */
     } else {
 #if UIP_ND6_SEND_NA

@@ -12,6 +12,9 @@ receivedList = {}
 droppedList = {}
 nodeState = {}
 timeline = OrderedDict()
+nodeIDs = []
+allNodeIDs = []
+ignoredNodeIDs = []
 
 def dumpTxStats():
     for id in nodeState:
@@ -88,7 +91,7 @@ def parseDutyCycle(line, time, id, log, packetInfo, asnInfo):
     return None
 
 def parseApp(line, time, id, log, packetInfo, asnInfo):
-    global appDataStats, receivedList
+    global appDataStats, receivedList, nodeIDs, ignoredNodeIDs
 
     if packetInfo != None:
         packetId = packetInfo['id']
@@ -100,6 +103,15 @@ def parseApp(line, time, id, log, packetInfo, asnInfo):
     
 #---- App: Sending -------------------------------------------------------------------------------------------------------------
     if log.startswith('sending'):
+        
+        if not dst in nodeIDs:
+            # this is a node with broken serial output. Ignore. Add to ignored list
+            if not dst in ignoredNodeIDs:
+                ignoredNodeIDs.append(dst)
+            if not id in allNodeIDs:
+                allNodeIDs.append(id)
+            return None
+        
         moduleInfo = {'event': 'sending', 'sending': True, 'received': False,
             'receivedCount': 0, 'fwCount': 0,  
             'hops': -1, 
@@ -168,6 +180,12 @@ def parseRPL(line, time, id, log, packetInfo, asnInfo):
         if packetInfo != None:
             doAppDrop(packetInfo['id'], 'fwError')
         return {'event': 'fwError'}
+
+#---- RPL: fw error -------------------------------------------------------------------------------------------------------------    
+    if "reset trickle" in log:
+        if packetInfo != None:
+            doAppDrop(packetInfo['id'], 'trickleReset')
+        return {'event': 'trickleReset'}    
     
 #---- RPL: state overview  -------------------------------------------------------------------------------------------------------------
     res = re.compile('MOP \d OCP \d rank (\d+) dioint (\d+), nbr count (\d+)').match(log)
@@ -178,22 +196,22 @@ def parseRPL(line, time, id, log, packetInfo, asnInfo):
         return {'event': 'status', 'rank': rank, 'dioint': dioint, 'neighbors': neighbors }
     
 #---- RPL: neighbor information -------------------------------------------------------------------------------------------------------------  
-    res = re.compile('nbr\s*(\d+)\s*(\d+)\s*,\s*(\d+)\s*=>\s*(\d+)[\s\*]*\(rssi ([-\d]+) lqi (\d+)\)').match(log)
-    if res:
-        nbr = int(res.group(1))
-        diorank = int(res.group(2))
-        link = int(res.group(3))
-        rank = int(res.group(4))
-        rssi = int(res.group(5))
-        lqi = int(res.group(6))
-
-        if not nbr in nodeState[id]['txStats']:
-            nodeState[id]['txStats'][nbr] = {'txCount': 0, 'ackCount': 0, 'rssi': [], 'lqi': []}
-        nodeState[id]['txStats'][nbr]['link'] = link
-        nodeState[id]['txStats'][nbr]['rssi'].append(rssi)
-        nodeState[id]['txStats'][nbr]['lqi'].append(lqi)
-           
-        return None
+    #res = re.compile('nbr\s*(\d+)\s*(\d+)\s*,\s*(\d+)\s*=>\s*(\d+)[\s\*]*\(rssi ([-\d]+) lqi (\d+)\)').match(log)
+    #if res:
+    #    nbr = int(res.group(1))
+    #    diorank = int(res.group(2))
+    #    link = int(res.group(3))
+    #    rank = int(res.group(4))
+    #    rssi = int(res.group(5))
+    #    lqi = int(res.group(6))
+    #
+    #    if not nbr in nodeState[id]['txStats']:
+    #        nodeState[id]['txStats'][nbr] = {'txCount': 0, 'ackCount': 0, 'rssi': [], 'lqi': []}
+    #    nodeState[id]['txStats'][nbr]['link'] = link
+    #    nodeState[id]['txStats'][nbr]['rssi'].append(rssi)
+    #    nodeState[id]['txStats'][nbr]['lqi'].append(lqi)
+    #       
+    #    return None
     
     return None
 
@@ -382,7 +400,7 @@ def parseTsch(line, time, id, log, packetInfo, asnInfo):
             timeline[asn][id] = moduleInfo
                                             
             return moduleInfo
-                
+                                
     else: # no asnInfo
                     
 #---- TSCH: input -------------------------------------------------------------------------------------------------------------
@@ -417,6 +435,12 @@ def parseTsch(line, time, id, log, packetInfo, asnInfo):
             new = int(res.group(2))
             nodeState[id]['timeSources'].add(new)
             return {'event': 'updateTimeSource', 'timeSourceCount': len(nodeState[id]['timeSources'])}
+        
+#---- TSCH link: Rx duplicate -------------------------------------------------------------------------------------------------------------
+        if "drop dup ll" in log:
+            if packetInfo != None:
+                doAppDrop(packetInfo['id'], 'lldup')
+                return {'event': 'lldup'}
 
     return None
 
@@ -432,14 +456,12 @@ def parseLine(line):
     return None, None, None
 
 def doParse(file, sinkId):
-    global appDataStats, hopDataStats, receivedList, nodeState, timeline
+    global appDataStats, hopDataStats, receivedList, nodeState, timeline, nodeIDs, allNodeIDs, ignoredNodeIDs
 
     allData = []
     baseTime = None
     lastPrintedTime = 0
     time = None
-    nodeIDs = []
-    allNodeIDs = []
     nonExtractedModules = []
     parsingFunctions = {
                         #'Duty Cycle': parseDutyCycle,
@@ -457,7 +479,7 @@ def doParse(file, sinkId):
     linesParsedCount = 0
     
     for line in open(file, 'r').readlines():
-    #for line in open(file, 'r').readlines()[:1000000]:
+    #for line in open(file, 'r').readlines()[:250000]:
     #for line in open(file, 'r').readlines()[-20000:]:
         log = None
         module = None
@@ -583,9 +605,8 @@ def doParse(file, sinkId):
             timeline[asn][senderId]['contenderCount'] = contenderCount
     
     print "\nParsed %d/%d lines" %(linesParsedCount, linesProcessedCount)
-    for id in filter(lambda x: x not in nodeIDs, allNodeIDs):
-        print "Warning: node %u was not active" %id
         
-    #dumpTxStats()
-    
-    return {'file': file, 'dataset': allData, 'maxTime': time, 'nodeIDs': nodeIDs, 'allNodeIDs': allNodeIDs, 'appDataStats': appDataStats, 'timeline': timeline}
+    inactiveNodeIDs = list(set(allNodeIDs) - set(nodeIDs))
+    return {'file': file, 'dataset': allData, 'maxTime': time,
+            'nodeIDs': nodeIDs, 'allNodeIDs': allNodeIDs, 'ignoredNodeIDs': ignoredNodeIDs, 'inactiveNodeIDs': inactiveNodeIDs,
+            'appDataStats': appDataStats, 'timeline': timeline}

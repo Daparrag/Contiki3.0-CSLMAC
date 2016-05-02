@@ -22,12 +22,12 @@ def extract(dir):
         if os.path.exists(os.path.join(path, '../.started')) and not os.path.exists(os.path.join(path, '../.stopped')):
         	print " is ongoing"
         	continue
-       	if os.path.exists(os.path.join(path, 'summary.txt')):
+        if os.path.exists(os.path.join(path, 'summary.txt')):
        	    print " summary already done."
             continue
-        if os.path.exists(os.path.join(path, 'plots/allplots.pdf')):
-            print " plot already done."
-            continue
+        #if os.path.exists(os.path.join(path, 'plots/allplots.pdf')):
+         #   print " plot already done."
+          #  continue
 
         print " extracting data...",
         sys.stdout.flush() 
@@ -39,4 +39,8 @@ def extract(dir):
         
         print " done."
 
-extract('iotlab-batch10')
+if len(sys.argv) < 2:
+    dir = '.'
+else:
+    dir = sys.argv[1].rstrip('/')
+extract(dir)

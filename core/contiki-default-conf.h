@@ -291,13 +291,13 @@
 #define LOGU(...) LOG_NL(__VA_ARGS__)
 #define LOGP(...) LOG_NL(__VA_ARGS__)
 #define LOG_IPADDR(addr) uip_debug_ipaddr_print(addr)
-#define LOG_LLADDR(addr) uip_debug_lladdr_print(addr)
+#define LOG_LLADDR(addr) net_debug_lladdr_print(addr)
 #define LOG_INC_HOPCOUNT_FROM_PACKETBUF() { }
 
 #define LOG_APPDATAPTR_FROM_BUFFER(b, l) NULL
 #define LOG_APPDATAPTR_FROM_PACKETBUF() NULL
 #define LOG_APPDATAPTR_FROM_QUEUEBUF(q) NULL
-#define LOG_ID_FROM_LINKADDR(addr) ((addr) ? (addr)->u8[7] : 0)
+#define LOG_ID_FROM_LINKADDR(addr) ((addr) ? (addr)->u8[LINKADDR_SIZE - 1] : 0)
 #define LOG_ID_FROM_IPADDR(addr) ((addr) ? (addr)->u8[15] : 0)
 #define LOG_PRINT_NEIGHBOR_LIST rpl_print_neighbor_list
 #endif /* WITH_LOG */

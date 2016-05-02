@@ -623,7 +623,9 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
     log->tx.sec_level = 0;
 #endif /* LLSEC802154_ENABLED */
     log->tx.dest = TSCH_LOG_ID_FROM_LINKADDR(queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER));
+#if WITH_LOG
     appdata_copy(&log->tx.appdata, LOG_APPDATAPTR_FROM_BUFFER(queuebuf_dataptr(current_packet->qb), queuebuf_datalen(current_packet->qb)));
+#endif
     );
 
     /* Poll process for later processing of packet sent events and logs */
@@ -712,13 +714,13 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
         static int frame_valid;
         static int header_len;
         static frame802154_t frame;
-        radio_value_t radio_last_rssi;
+        radio_value_t radio_last_rssi = 0;
 
         NETSTACK_RADIO.get_value(RADIO_PARAM_LAST_RSSI, &radio_last_rssi);
         /* Read packet */
         current_input->len = NETSTACK_RADIO.read((void *)current_input->payload, TSCH_PACKET_MAX_LEN);
         current_input->rx_asn = current_asn;
-        current_input->rssi = (signed)radio_last_rssi;
+        current_input->rssi = radio_last_rssi;
         current_input->channel = current_channel;
         header_len = frame802154_parse((uint8_t *)current_input->payload, current_input->len, &frame);
         frame_valid = header_len > 0 &&
@@ -815,7 +817,7 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
             ringbufindex_put(&input_ringbuf);
 
             /* Log every reception */
-            if(frame.fcf.ack_required) { /* Log unicast only */
+            if(TSCH_LOG_ALL_RX || frame.fcf.ack_required) { /* Log unicast only */
               TSCH_LOG_ADD(tsch_log_rx,
                 log->rx.src = TSCH_LOG_ID_FROM_LINKADDR((linkaddr_t*)&frame.src_addr);
                 log->rx.is_unicast = frame.fcf.ack_required;
@@ -825,7 +827,12 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
                 log->rx.is_data = frame.fcf.frame_type == FRAME802154_DATAFRAME;
                 log->rx.sec_level = frame.aux_hdr.security_control.security_level;
                 log->rx.estimated_drift = estimated_drift;
+#if WITH_RSSI_LOG
+                log->rx.rssi = current_input->rssi;
+#endif
+#if WITH_LOG
                 appdata_copy(&log->rx.appdata, LOG_APPDATAPTR_FROM_BUFFER(current_input->payload, current_input->len));
+#endif
               );
             }
           } else {
@@ -961,6 +968,11 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
         current_slot_start += tsch_timesync_adaptive_compensate(time_to_next_active_slot);
       } while(!tsch_schedule_slot_operation(t, prev_slot_start, time_to_next_active_slot, "main"));
     }
+
+#if WITH_POLL_RPL_PROCESS
+    PROCESS_NAME(app_rpl_process);
+    process_poll(&app_rpl_process);
+#endif /* WITH_POLL_RPL_PROCESS */
 
     tsch_in_slot_operation = 0;
     PT_YIELD(&slot_operation_pt);

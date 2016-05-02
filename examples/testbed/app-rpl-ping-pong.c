@@ -52,11 +52,11 @@
 #include "net/ip/uip-debug.h"
 
 #define START_DELAY (5 * 60 * CLOCK_SECOND)
-#define SEND_INTERVAL   (CLOCK_SECOND/2)
+#define SEND_INTERVAL   (CLOCK_SECOND/4)
 #define WITH_PONG 0
 #define UDP_PORT 1234
 
-#define TARGET_NODES (MAX_NODES-30)
+#define TARGET_NODES (MAX_NODES-50)
 //#define TARGET_NODES 50
 
 static struct simple_udp_connection unicast_connection;
@@ -222,7 +222,7 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
     etimer_set(&periodic_timer, 60 * CLOCK_SECOND);
     while(1) {
       printf("Info: Not running. My MAC address: ");
-      uip_debug_lladdr_print((const uip_lladdr_t *)&linkaddr_node_addr);
+      net_debug_lladdr_print((const uip_lladdr_t *)&linkaddr_node_addr);
       printf("\n");
       PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
       etimer_reset(&periodic_timer);

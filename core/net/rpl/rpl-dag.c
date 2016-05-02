@@ -258,8 +258,6 @@ rpl_set_preferred_parent(rpl_dag_t *dag, rpl_parent_t *p)
     nbr_table_unlock(rpl_parents, dag->preferred_parent);
     nbr_table_lock(rpl_parents, p);
     dag->preferred_parent = p;
-
-    rpl_print_neighbor_list();
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -1444,6 +1442,10 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
   rpl_instance_t *instance;
   rpl_dag_t *dag, *previous_dag;
   rpl_parent_t *p;
+
+  if(rpl_get_any_dag() == NULL) {
+    printf("RPL: not joined yet, received a DIO\n");
+  }
 
 #if RPL_CONF_MULTICAST
   /* If the root is advertising MOP 2 but we support MOP 3 we can still join

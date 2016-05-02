@@ -42,6 +42,7 @@
  * @{
  */
 
+#include "contiki-conf.h"
 #include "net/rime/rime.h"
 #include "net/rime/unicast.h"
 #include <string.h>

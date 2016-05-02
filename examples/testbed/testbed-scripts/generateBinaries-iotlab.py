@@ -10,28 +10,54 @@ DEP = 6
 TARGET = "iotlab-m3"
 TARGET_BIN = "iotlab-m3"
 
-DURATION = 10
-ITERATIONS = 10
+DURATION = 60
+ITERATIONS = 2
 SSH_SERVER = "duquenno@grenoble.iot-lab.info"
 
 BUID_BINARIES = True
 SCHEDULE_JOBS = True
 
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'squaredetx': 1, 'rssibased': 1, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'squaredetx': 1, 'rssibased': 1, 'daoack': 0})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'squaredetx': 1, 'rssibased': 1, 'daoack': 1})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'squaredetx': 1, 'rssibased': 1, 'daoack': 1})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'squaredetx': 1, 'rssibased': 0, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'squaredetx': 1, 'rssibased': 0, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'squaredetx': 0, 'rssibased': 1, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'squaredetx': 0, 'rssibased': 1, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'squaredetx': 1, 'rssibased': 1, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'freshonly': 0, 'squaredetx': 1, 'rssibased': 1, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'squaredetx': 0, 'rssibased': 0, 'daoack': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'freshonly': 0, 'squaredetx': 0, 'rssibased': 0, 'daoack': 0})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 16 })
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'channels': 16 })
+
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 0, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 0, 'squaredetx': 1, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 0, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 0, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 0, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 0, 'smartdup': 0, 'fixloop': 0, 'squaredetx': 0, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'freshonly': 0, 'rssibased': 0, 'smartdup': 0, 'fixloop': 0, 'squaredetx': 0, 'channels': 16})
 
 def getFileName(config):
-  return "down_rpl%d_prb%d_cons%d_squ%d_rssi%d_daoack%d.%s" %(config['rpl_mode'], config['probing'], config['freshonly'], config['squaredetx'], config['rssibased'], config['daoack'], TARGET_BIN)
+    name = "down"
+    if 'rpl_mode' in config:
+        name += "_rpl%d"%(config['rpl_mode'])
+    if 'probing' in config:
+        name += "_prb%d"%(config['probing'])
+    if 'freshonly' in config:
+        name += "_fresh%d"%(config['freshonly'])
+    if 'squaredetx' in config:
+        name += "_squ%d"%(config['squaredetx'])
+    if 'daoack' in config:
+        name += "_daoack%d"%(config['daoack'])
+    if 'rssibased' in config:
+        name += "_rssi%d"%(config['rssibased'])
+    if 'channels' in config:
+        name += "_ch%d"%(config['channels'])
+    if 'rtx' in config:
+        name += "_rtx%d"%(config['rtx'])
+    if 'smartdup' in config:
+        name += "smartdup%d"%(config['smartdup'])
+    if 'fixloop' in config:
+        name += "fixloop%d"%(config['fixloop'])
+    name += ".iotlab-m3"
+    return name
 
 if BUID_BINARIES:
   # get current git hash
@@ -46,16 +72,33 @@ if BUID_BINARIES:
 
     buildCmd = ["make",
                 "TARGET=%s"%(TARGET),
-                "DEP=%d"%(DEP),
-                "RPL_CONFIG=%s" %(config['rpl_mode']),
-                "PROBING=%s" %(config['probing']),
-                "FRESHONLY=%s" %(config['freshonly']),
-                "SQUAREDETX=%s" %(config['squaredetx']),
-                "DAOACK=%s" %(config['daoack']),
-                "RSSI_BASED_ETX=%s" %(config['rssibased']),
-                "%s.%s" %(config['app'], TARGET_BIN),
+                "DEP=%d"%(DEP)
                 ]
-                    
+
+    if 'rpl_mode' in config:
+        buildCmd += ["RPL_CONFIG=%s" %(config['rpl_mode'])]
+    if 'probing' in config:
+        buildCmd += ["PROBING=%s" %(config['probing'])]
+    if 'freshonly' in config:
+        buildCmd += ["FRESHONLY=%s" %(config['freshonly'])]
+    if 'squaredetx' in config:
+        buildCmd += ["SQUAREDETX=%s" %(config['squaredetx'])]
+    if 'daoack' in config:
+        buildCmd += ["DAOACK=%s" %(config['daoack'])]
+    if 'rssibased' in config:
+        buildCmd += ["RSSI_BASED_ETX=%s" %(config['rssibased'])]
+    if 'channels' in config:
+        buildCmd += ["CHANNELS=%s" %(config['channels'])]
+    if 'rtx' in config:
+        buildCmd += ["RTX=%s" %(config['rtx'])]
+    if 'ackaddr' in config:
+        buildCmd += ["SMARTDUP=%s" %(config['smartdup'])]
+    if 'fixloop' in config:
+        buildCmd += ["FIXLOOP=%s" %(config['fixloop'])]
+    
+    
+    buildCmd += ["%s.%s" %(config['app'], TARGET_BIN)]
+                        
     newFileName = getFileName(config)
 
     print "Generating file %s" %newFileName

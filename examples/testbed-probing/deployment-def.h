@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2014, Swedish Institute of Computer Science.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,66 +26,56 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * This file is part of the Contiki operating system.
- *
  */
 /**
  * \file
- *         A set of debugging macros for the netstack
+ *         Deployment-related macros. Distinct from deployment.h as this
+ *         is a stand-alone file (does not include any other file) that
+ *         can be included globally from e.g. a project-conf.h file.
  *
- * \author Nicolas Tsiftes <nvt@sics.se>
- *         Niclas Finne <nfi@sics.se>
- *         Joakim Eriksson <joakime@sics.se>
- *         Simon Duquennoy <simon.duquennoy@inria.fr>
+ * \author Simon Duquennoy <simonduq@sics.se>
  */
 
-#ifndef NET_DEBUG_H
-#define NET_DEBUG_H
+#ifndef DEPLOYMENT_DEF_H
+#define DEPLOYMENT_DEF_H
 
-#include "contiki-conf.h"
-#include "net/ip/uip.h"
-#include "net/linkaddr.h"
-#include <stdio.h>
+#define DEPLOYMENT_COOJA        1
+#define DEPLOYMENT_MOTES        2
+#define DEPLOYMENT_TWIST        3
+#define DEPLOYMENT_INDRIYA      4
+#define DEPLOYMENT_NESTESTBED   5
+#define DEPLOYMENT_IOTLAB       6
 
-void net_debug_lladdr_print(const uip_lladdr_t *addr);
-
-#define DEBUG_NONE      0
-#define DEBUG_PRINT     1
-#define DEBUG_ANNOTATE  2
-#define DEBUG_FULL      DEBUG_ANNOTATE | DEBUG_PRINT
-
-/* PRINTA will always print if the debug routines are called directly */
-#ifdef __AVR__
-#include <avr/pgmspace.h>
-#define PRINTA(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
+#ifndef DEPLOYMENT
+#if CONTIKI_TARGET_JN516X
+#define DEPLOYMENT DEPLOYMENT_MOTES
 #else
-#define PRINTA(...) printf(__VA_ARGS__)
+#define DEPLOYMENT DEPLOYMENT_COOJA
+#endif /* CONTIKI_TARGET_JN516X */
 #endif
 
-#if (DEBUG) & DEBUG_ANNOTATE
-#ifdef __AVR__
-#define ANNOTATE(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
-#else
-#define ANNOTATE(...) printf(__VA_ARGS__)
-#endif
-#else
-#define ANNOTATE(...)
-#endif /* (DEBUG) & DEBUG_ANNOTATE */
+#define IN_COOJA (DEPLOYMENT == DEPLOYMENT_COOJA)
+#define IN_MOTES (DEPLOYMENT == DEPLOYMENT_MOTES)
+#define IN_TWIST (DEPLOYMENT == DEPLOYMENT_TWIST)
+#define IN_INDRIYA (DEPLOYMENT == DEPLOYMENT_INDRIYA)
+#define IN_NESTESTBED (DEPLOYMENT == DEPLOYMENT_NESTESTBED)
+#define IN_IOTLAB (DEPLOYMENT == DEPLOYMENT_IOTLAB)
 
-#if (DEBUG) & DEBUG_PRINT
-#ifdef __AVR__
-#define PRINTF(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
+#if IN_TWIST
+#define ROOT_ID 137
+#elif IN_INDRIYA
+#define ROOT_ID 2
+#define MAX_NODES 90
+#elif IN_NESTESTBED
+#define ROOT_ID 1
+#define MAX_NODES 25
+#elif IN_IOTLAB
+#define ROOT_ID 240
+//#define ROOT_ID 164
+#define MAX_NODES 343
 #else
-#define PRINTF(...) printf(__VA_ARGS__)
+#define ROOT_ID 1
+#define MAX_NODES 8
 #endif
-#if WITH_LOG
-#define PRINTLLADDR(lladdr) printf("%u", LOG_ID_FROM_LINKADDR(lladdr));
-#else
-#define PRINTLLADDR(lladdr) net_debug_lladdr_print(lladdr)
-#endif /* WITH_LOG */
-#else
-#define PRINTF(...)
-#define PRINTLLADDR(lladdr)
-#endif /* (DEBUG) & DEBUG_PRINT */
 
-#endif /* NET_DEBUG_H */
+#endif /* DEPLOYMENT_DEF_H */

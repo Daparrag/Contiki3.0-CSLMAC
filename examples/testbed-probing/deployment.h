@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2014, Swedish Institute of Computer Science.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,66 +26,45 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * This file is part of the Contiki operating system.
- *
  */
 /**
  * \file
- *         A set of debugging macros for the netstack
+ *         Header file for deployment.c
  *
- * \author Nicolas Tsiftes <nvt@sics.se>
- *         Niclas Finne <nfi@sics.se>
- *         Joakim Eriksson <joakime@sics.se>
- *         Simon Duquennoy <simon.duquennoy@inria.fr>
+ * \author Simon Duquennoy <simonduq@sics.se>
  */
 
-#ifndef NET_DEBUG_H
-#define NET_DEBUG_H
+#ifndef DEPLOYMENT_H
+#define DEPLOYMENT_H
 
 #include "contiki-conf.h"
+#include "deployment-def.h"
+#include "sys/node-id.h"
 #include "net/ip/uip.h"
 #include "net/linkaddr.h"
-#include <stdio.h>
 
-void net_debug_lladdr_print(const uip_lladdr_t *addr);
+/* Returns the total number of nodes in the deployment */
+uint16_t get_node_id();
+/* Returns a node-index from a node's linkaddr */
+uint16_t node_index_from_linkaddr(const linkaddr_t *addr);
+/* Returns a node-id from a node's link-layer address */
+uint16_t node_id_from_linkaddr(const linkaddr_t *addr);
+/* Returns a node-id from a node's IPv6 address */
+uint16_t node_id_from_ipaddr(const uip_ipaddr_t *addr);
+/* Returns a node-index from a node-id */
+uint16_t get_node_index_from_id(uint16_t id);
+/* Sets an IPv6 from a link-layer address */
+void set_ipaddr_from_linkaddr(uip_ipaddr_t *ipaddr, const linkaddr_t *lladdr);
+/* Sets an IPv6 from a link-layer address */
+void set_ipaddr_from_id(uip_ipaddr_t *ipaddr, uint16_t id);
+/* Initializes global IPv6 and creates DODAG */
+int deployment_init(uip_ipaddr_t *ipaddr, uip_ipaddr_t *br_prefix, int root_id);
+/* Returns a node id at random */
+uint16_t get_random_node_id();
+/* Iterates over all node IDs */
+uint16_t get_next_node_id();
 
-#define DEBUG_NONE      0
-#define DEBUG_PRINT     1
-#define DEBUG_ANNOTATE  2
-#define DEBUG_FULL      DEBUG_ANNOTATE | DEBUG_PRINT
+/* Our absolute index in the id_mac table */
+extern uint16_t node_index;
 
-/* PRINTA will always print if the debug routines are called directly */
-#ifdef __AVR__
-#include <avr/pgmspace.h>
-#define PRINTA(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
-#else
-#define PRINTA(...) printf(__VA_ARGS__)
-#endif
-
-#if (DEBUG) & DEBUG_ANNOTATE
-#ifdef __AVR__
-#define ANNOTATE(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
-#else
-#define ANNOTATE(...) printf(__VA_ARGS__)
-#endif
-#else
-#define ANNOTATE(...)
-#endif /* (DEBUG) & DEBUG_ANNOTATE */
-
-#if (DEBUG) & DEBUG_PRINT
-#ifdef __AVR__
-#define PRINTF(FORMAT,args...) printf_P(PSTR(FORMAT),##args)
-#else
-#define PRINTF(...) printf(__VA_ARGS__)
-#endif
-#if WITH_LOG
-#define PRINTLLADDR(lladdr) printf("%u", LOG_ID_FROM_LINKADDR(lladdr));
-#else
-#define PRINTLLADDR(lladdr) net_debug_lladdr_print(lladdr)
-#endif /* WITH_LOG */
-#else
-#define PRINTF(...)
-#define PRINTLLADDR(lladdr)
-#endif /* (DEBUG) & DEBUG_PRINT */
-
-#endif /* NET_DEBUG_H */
+#endif /* DEPLOYMENT_H */

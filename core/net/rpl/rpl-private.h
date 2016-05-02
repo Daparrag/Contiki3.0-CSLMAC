@@ -260,7 +260,7 @@
 #endif
 
 /* DIS related */
-#define RPL_DIS_SEND                    1
+#define RPL_DIS_SEND                    0
 
 /*---------------------------------------------------------------------------*/
 /* Lollipop counters */

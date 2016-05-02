@@ -19,6 +19,7 @@ EDC_DIVISOR = 128
 SINK_ID = 240
 #SINK_ID = 272
 plotIndex = 0
+TARGET_MIN_TIME = 5
 
 LINK_DURATION = 0.015 # 15 ms (in s)
 TICK_DURATION = 0.000030517578125 # 30 us (in s) for Sky
@@ -126,7 +127,7 @@ def generateDataFiles(parsed, name, unit, globalData, nodeIDs, perNodeIndexData,
         for t in tlist:
             fileTimeline.write("%f %f %f %f %f\n" %(t, timelineData[t]['avg'], timelineData[t]['min'], timelineData[t]['max'], timelineData[t]['stdev']))
 
-def extractData(parsed, name, unit, condition, extractField, expectedRange, period, doSum=False, revert=False, doMax=False, verbose=False, export=True, debug=False):
+def extractData(parsed, name, unit, condition, extractField, expectedRange, period, doSum=False, revert=False, doMax=False, verbose=False, export=True, debug=False, weightFunction=None):
     global plotIndex
     global scriptlog
     dataset = parsed['dataset']
@@ -139,7 +140,7 @@ def extractData(parsed, name, unit, condition, extractField, expectedRange, peri
     print str,
     sys.stdout.flush()
     scriptlog.write(str + "\n")
-    
+        
     for line in dataset:
         if condition(line):
             value = extractField(line)
@@ -181,8 +182,14 @@ def extractData(parsed, name, unit, condition, extractField, expectedRange, peri
             else:
                 if withinTimeBounds:
                     validCount += 1
-                        
-            data.append({'value': value, 'id': id, 'interval': interval, 'time': time})
+
+            if weightFunction != None:
+                weight = weightFunction(line)
+            else:
+                weight = 1
+                
+            for i in range(weight):
+                data.append({'value': value, 'id': id, 'interval': interval, 'time': time})
             if not interval in intervals:
                 intervals.append(interval)
                        
@@ -567,7 +574,7 @@ def analyzeTimeline(dir, parsed):
     contentionlog.write(str + "\n")
                                 
 def process(parsed):      
-        global MIN_TIME, MAX_TIME
+        global MIN_TIME, MAX_TIME, TARGET_MIN_TIME
         global scriptlog
                 
         dataset = parsed['dataset']
@@ -590,9 +597,9 @@ def process(parsed):
                 {'min': 1, 'max': 100},
                 MIN_INTERVAL, verbose=False, export=False)
         
-        if parsed['maxTime']/60 > 6:
+        if parsed['maxTime']/60 > TARGET_MIN_TIME + 1:
             #MIN_TIME = (parsed['maxTime']/60) / 2
-            MIN_TIME = 5
+            MIN_TIME = TARGET_MIN_TIME
             MAX_TIME = (parsed['maxTime']/60) - 1
         else:
             MIN_TIME = 0
@@ -617,7 +624,7 @@ def process(parsed):
                         MIN_INTERVAL, verbose=True, revert=True)
         )
         allPlottableData.append( 
-            extractData(parsed, "MAC error", "%",
+            extractData(parsed, "MAC queue full", "%",
                         lambda x: x['module'] == 'App' and 'sending' in x['info'],
                         lambda x: 100 if not x['info']['received'] and "macError" in x['info'] else 0,
                         {'min': 0, 'max': 0},
@@ -645,6 +652,20 @@ def process(parsed):
                         MIN_INTERVAL, verbose=True, revert=True)
         )
         allPlottableData.append( 
+            extractData(parsed, "Link-layer duplicate", "%",
+                        lambda x: x['module'] == 'App' and 'sending' in x['info'],
+                        lambda x: 100 if not x['info']['received']
+                          and not "macDrop" in x['info']
+                          and not "macError" in x['info']
+                          and not "noRouteFound" in x['info']
+                          and not "fwError" in x['info']
+                          and not "nbrCachePb" in x['info']
+                          and "lldup" in x['info']
+                          else 0,
+                        {'min': 0, 'max': 0},
+                        MIN_INTERVAL, verbose=True, revert=True)
+        )
+        allPlottableData.append( 
             extractData(parsed, "Not received, not dropped", "%",
                         lambda x: x['module'] == 'App' and 'sending' in x['info'],
                         lambda x: 100 if not x['info']['received']
@@ -653,6 +674,7 @@ def process(parsed):
                           and not "noRouteFound" in x['info']
                           and not "fwError" in x['info']
                           and not "nbrCachePb" in x['info']
+                          and not "lldup" in x['info']
                           else 0,
                         {'min': 0, 'max': 0},
                         MIN_INTERVAL, verbose=True, revert=True)
@@ -675,6 +697,13 @@ def process(parsed):
             extractData(parsed, "Rank", "etx",
                         lambda x: x['module'] == 'RPL' and x['info']['event']=='status',
                         lambda x: x['info']['rank'],
+                        {'min': 0, 'max': 0xffff},
+                        MIN_INTERVAL)
+        )
+        allPlottableData.append( 
+            extractData(parsed, "DIO interval", "#",
+                        lambda x: x['module'] == 'RPL' and x['info']['event']=='status',
+                        lambda x: x['info']['dioint'],
                         {'min': 0, 'max': 0xffff},
                         MIN_INTERVAL)
         )
@@ -729,13 +758,21 @@ def process(parsed):
             #            {'min': 0, 'max': 100},
              #           MIN_INTERVAL)
         #)
-#        allPlottableData.append( 
-#            extractData(parsed, "TSCH Unicast Mean TxCount", "#",
-#                        lambda x: x['module'] == '6LoWPAN' and x['info']['event'] == 'sent'  and x['info']['is_unicast'],
-#                        lambda x: x['info']['txCount'],
-#                        {'min': 0, 'max': 9},
-#                        MIN_INTERVAL)
-#        )
+        #allPlottableData.append( 
+         #   extractData(parsed, "TSCH Unicast Mean TxCount", "#",
+          #              lambda x: x['module'] == '6LoWPAN' and x['info']['event'] == 'sent'  and x['info']['is_unicast'],
+           #             lambda x: x['info']['txCount'],
+            #            {'min': 0, 'max': 16},
+             #           MIN_INTERVAL),
+        #)
+        allPlottableData.append( 
+            extractData(parsed, "TSCH Unicast PRR", "%",
+                        lambda x: x['module'] == '6LoWPAN' and x['info']['event'] == 'sent'  and x['info']['is_unicast'],
+                        lambda x: 1./x['info']['txCount'] if x['info']['status'] == 0 else 0,
+                        {'min': 0, 'max': 16},
+                        MIN_INTERVAL,
+                        weightFunction=(lambda x: x['info']['txCount'])),
+        )
         allPlottableData.append( 
             extractData(parsed, "6LoWPAN Unicast Success", "%",
                         lambda x: x['module'] == '6LoWPAN' and x['info']['event'] == 'sent',
@@ -749,6 +786,13 @@ def process(parsed):
                         lambda x: x['info']['dutyCycle'],
                         {'min': 0, 'max': 25},
                         1),
+        )
+        allPlottableData.append( 
+            extractData(parsed, "RPL trickle reset", "#",
+                        lambda x: x['module'] == 'RPL' and x['info']['event'] == 'trickleReset',
+                        lambda x: 1,
+                        {'min': 0, 'max': 1},
+                        1, doSum=True),
         )
         allPlottableData.append( 
             extractData(parsed, "RPL parent switch", "#",
@@ -872,6 +916,14 @@ def process(parsed):
         str = "Nodes active: %d/%d" %(len(parsed['nodeIDs']), len(parsed['allNodeIDs']))
         print str
         summaryFile.write("%s\n" %str)
+        if len(parsed['inactiveNodeIDs']) > 0:
+          str = "List of nodes inactive (num: %u): %s"%(len(parsed['inactiveNodeIDs']), "".join(map(lambda x: "%u, " %x,parsed['inactiveNodeIDs'])))
+          print str
+          summaryFile.write("%s\n" %str)
+        if len(parsed['ignoredNodeIDs']) > 0:
+          str = "List of nodes ignored (num: %u): %s"%(len(parsed['ignoredNodeIDs']), "".join(map(lambda x: "%u, " %x,parsed['ignoredNodeIDs'])))
+          print str
+          summaryFile.write("%s\n" %str)
         str = "App messages in period [%d-%d]: %d/%d (loss rate: 1/%d)" %(MIN_TIME, MAX_TIME, extractedPRR['validCount'], extractedPRR['count'],
           extractedPRR['count']/(extractedPRR['count']-extractedPRR['validCount']) if extractedPRR['count'] != extractedPRR['validCount'] else 0)
         print str
@@ -910,15 +962,23 @@ def process(parsed):
 def main():
     global MIN_TIME
     global MAX_TIME
+    global TARGET_MIN_TIME
 
     if len(sys.argv) < 2:
         dir = '.'
     else:
         dir = sys.argv[1].rstrip('/')
 
+    minTimeFile = os.path.join(dir, "mintime.txt")
+    if os.path.isfile(minTimeFile):
+        TARGET_MIN_TIME = int(open(minTimeFile, "r").readlines()[0])
+        print "Target min time: %u minutes" %(TARGET_MIN_TIME)
+
     file = os.path.join(dir, "log.txt")
     parsed = parseLogs.doParse(file, SINK_ID)
     parsed['dir'] = dir
+    
+ 
     
     print "\nProcessing %s" %(file)
     process(parsed)
