@@ -81,7 +81,7 @@
 #define PARENT_SWITCH_THRESHOLD 96 /* Eq ETX of 0.75 */
 #else /* !RPL_MRHOF_SQUARED_ETX */
 #define MAX_LINK_METRIC     512   /* Eq ETX of 2 */
-#define PARENT_SWITCH_THRESHOLD 256 /* Eq ETX of 2 */
+#define PARENT_SWITCH_THRESHOLD 160
 #endif /* !RPL_MRHOF_SQUARED_ETX */
 
 /* Reject parents that have a higher path cost than the following. */

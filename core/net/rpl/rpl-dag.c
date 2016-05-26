@@ -1374,14 +1374,14 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
 
   return_value = 1;
 
-  if(RPL_IS_STORING(instance)
+  /*if(RPL_IS_STORING(instance)
       && uip_ds6_route_is_nexthop(rpl_get_parent_ipaddr(p))
       && !rpl_parent_is_reachable(p)) {
     printf("RPL: Unacceptable link %u, removing routes via: ", rpl_get_parent_link_metric(p));
     uip_debug_ipaddr_print(rpl_get_parent_ipaddr(p));
     printf("\n");
     rpl_remove_routes_by_nexthop(rpl_get_parent_ipaddr(p), p->dag);
-  }
+  }*/
 
   if(!acceptable_rank(p->dag, p->rank)) {
     /* The candidate parent is no longer valid: the rank increase resulting

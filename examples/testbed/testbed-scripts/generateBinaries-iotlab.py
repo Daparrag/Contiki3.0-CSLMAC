@@ -53,9 +53,9 @@ def getFileName(config):
     if 'rtx' in config:
         name += "_rtx%d"%(config['rtx'])
     if 'smartdup' in config:
-        name += "smartdup%d"%(config['smartdup'])
+        name += "_smartdup%d"%(config['smartdup'])
     if 'fixloop' in config:
-        name += "fixloop%d"%(config['fixloop'])
+        name += "_fixloop%d"%(config['fixloop'])
     name += ".iotlab-m3"
     return name
 
