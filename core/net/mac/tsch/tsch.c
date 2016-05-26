@@ -236,7 +236,7 @@ keepalive_packet_sent(void *ptr, int status, int transmissions)
 #ifdef TSCH_LINK_NEIGHBOR_CALLBACK
   TSCH_LINK_NEIGHBOR_CALLBACK(packetbuf_addr(PACKETBUF_ADDR_RECEIVER), status, transmissions);
 #endif
-  PRINTF("TSCH: KA sent to %u, st %d-%d\n",
+  PRINTF("TSCH: KA sent to %u, st %d %d\n",
          TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER)), status, transmissions);
   tsch_schedule_keepalive();
 }
@@ -932,19 +932,17 @@ send_packet(mac_callback_t sent, void *ptr)
     /* Enqueue packet */
     p = tsch_queue_add_packet(addr, sent, ptr);
     if(p == NULL) {
-      LOGP("TSCH:! can't send packet to %u with seqno %u, queue %u %u, len %u %u",
+      LOGP("TSCH:! can't send packet to %u with seqno %u, queue %u %u",
           TSCH_LOG_ID_FROM_LINKADDR(addr), tsch_packet_seqno,
           packet_count_before,
-          tsch_queue_packet_count(addr),
-          p->header_len,
-          queuebuf_datalen(p->qb));
+          tsch_queue_packet_count(addr));
       ret = MAC_TX_ERR;
     } else {
       p->header_len = hdr_len;
-      PRINTF("TSCH: send packet to %u with seqno %u, queue %u %u, len %u %u\n",
+      PRINTF("TSCH: send packet to %u with seqno %u, queue %u-%u, len %u %u\n",
              TSCH_LOG_ID_FROM_LINKADDR(addr), tsch_packet_seqno,
-             packet_count_before,
              tsch_queue_packet_count(addr),
+             QUEUEBUF_NUM-queuebuf_numfree(),
              p->header_len,
              queuebuf_datalen(p->qb));
       (void)packet_count_before; /* Discard "variable set but unused" warning in case of TSCH_LOG_LEVEL of 0 */
