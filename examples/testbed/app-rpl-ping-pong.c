@@ -52,7 +52,7 @@
 #include "net/ip/uip-debug.h"
 
 #define START_DELAY (5 * 60 * CLOCK_SECOND)
-#define SEND_INTERVAL   (CLOCK_SECOND/4)
+#define SEND_INTERVAL   (CLOCK_SECOND/2)
 #define WITH_PONG 0
 #define UDP_PORT 1234
 
