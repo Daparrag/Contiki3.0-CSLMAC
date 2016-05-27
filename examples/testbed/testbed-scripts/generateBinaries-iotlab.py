@@ -15,22 +15,29 @@ ITERATIONS = 2
 SSH_SERVER = "duquenno@grenoble.iot-lab.info"
 
 BUID_BINARIES = True
-SCHEDULE_JOBS = True
+SCHEDULE_JOBS = False
 
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 16 })
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'channels': 16 })
 
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
-
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 0, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 0, 'channels': 16})
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 0, 'squaredetx': 1, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 1, 'fixloop': 0, 'squaredetx': 1, 'channels': 16})
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 0, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
-
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 0, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 0, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'rssibased': 1, 'smartdup': 0, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 1, 'rssibased': 0, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 1, 'rssibased': 0, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
-
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 0, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'freshonly': 0, 'rssibased': 1, 'smartdup': 1, 'fixloop': 1, 'squaredetx': 1, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 1, 'smartdup': 0, 'fixloop': 0, 'squaredetx': 0, 'channels': 16})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'freshonly': 0, 'rssibased': 1, 'smartdup': 0, 'fixloop': 0, 'squaredetx': 0, 'channels': 16})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 0, 'smartdup': 0, 'fixloop': 0, 'squaredetx': 1, 'channels': 16})
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'freshonly': 0, 'rssibased': 0, 'smartdup': 0, 'fixloop': 0, 'squaredetx': 0, 'channels': 16})
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'freshonly': 0, 'rssibased': 0, 'smartdup': 0, 'fixloop': 0, 'squaredetx': 0, 'channels': 16})
 
