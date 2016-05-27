@@ -20,12 +20,13 @@ def doConvert():
         log = None
         module = None
         # match time, id, module, log; The common format for all log lines
-        res = re.compile('^(\d+)\\tID:(\d+)\\t(.*)$').match(line)
+        res = re.compile('^(\d+)\.(\d+);(.*);(.*)$').match(line)
         if res:
-            t_us = int(res.group(1))
-            id = res.group(2)
-            log = res.group(3)
-            
+            t_sec = int(res.group(1))
+            t_us = t_sec * 1000000 + int(res.group(2))
+            id = res.group(3)
+            log = res.group(4)
+                        
             if not baseTime:
                 baseTime = t_us
             
@@ -34,7 +35,7 @@ def doConvert():
             t_s = t_ms / 1000.
             t_m = t_s / 60.
             
-            print "%3u:%02u.%03u\tID:%s\t%s" %(t_m, t_s%60, t_ms%1000, id, log)
+            print "%3u:%02u.%03u\t%s;%s" %(t_m, t_s%60, t_ms%1000, id, log)
 
 def main():
     doConvert()
