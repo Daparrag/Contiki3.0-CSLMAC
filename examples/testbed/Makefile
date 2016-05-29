@@ -29,7 +29,7 @@ MODULES += core/net/mac/tsch
 endif
 
 PROBING ?= 1
-SQUAREDETX ?= 1
+SQUAREDETX ?= 0
 FRESHONLY ?= 1
 RSSI_BASED_ETX ?= 1
 DAOACK ?= 0
