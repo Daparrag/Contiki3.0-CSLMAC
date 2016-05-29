@@ -76,12 +76,6 @@ void uip_ds6_link_neighbor_callback(int status, int numtx);
 #endif /* NETSTACK_CONF_WITH_IPV6 */
 #endif /* TSCH_LINK_NEIGHBOR_CALLBACK */
 
-/* 802.15.4 duplicate frame detection */
-struct seqno {
-  linkaddr_t sender;
-  uint8_t seqno;
-};
-
 /* Let TSCH select a time source with no help of an upper layer.
  * We do so using statistics from incoming EBs */
 #if TSCH_AUTOSELECT_TIME_SOURCE
@@ -894,14 +888,14 @@ send_packet(mac_callback_t sent, void *ptr)
     return;
   }
 
-  /* PACKETBUF_ATTR_MAC_SEQNO cannot be zero, due to a pecuilarity
-         in framer-802154.c. */
-  if(++tsch_packet_seqno == 0) {
-    tsch_packet_seqno++;
-  }
-
   /* Ask for ACK if we are sending anything other than broadcast */
   if(!linkaddr_cmp(addr, &linkaddr_null)) {
+    /* PACKETBUF_ATTR_MAC_SEQNO cannot be zero, due to a pecuilarity
+           in framer-802154.c. */
+    if(++tsch_packet_seqno == 0) {
+      tsch_packet_seqno++;
+    }
+    packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
     packetbuf_set_attr(PACKETBUF_ATTR_MAC_ACK, 1);
   } else {
     /* Broadcast packets shall be added to broadcast queue
@@ -911,7 +905,6 @@ send_packet(mac_callback_t sent, void *ptr)
   }
 
   packetbuf_set_attr(PACKETBUF_ATTR_FRAME_TYPE, FRAME802154_DATAFRAME);
-  packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
 
 #if LLSEC802154_ENABLED
   if(tsch_is_pan_secured) {

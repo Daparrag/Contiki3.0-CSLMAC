@@ -73,14 +73,16 @@
 #if !RPL_MRHOF_SQUARED_ETX
 /* Configuration parameters of RFC6719. Reject parents that have a higher
  * link metric than the following. The default value is 512 but we use 1024. */
-#define MAX_LINK_METRIC     256   /* Eq ETX of 2 */
+//#define MAX_LINK_METRIC     256   /* Eq ETX of 2 */
+#define MAX_LINK_METRIC     512
 /* Hysteresis of MRHOF: the rank must differ more than PARENT_SWITCH_THRESHOLD_DIV
  * in order to switch preferred parent. Default in RFC6719: 192, eq ETX of 1.5.
  * We use a more aggressive setting: 96, eq ETX of 0.75.
  */
 #define PARENT_SWITCH_THRESHOLD 96 /* Eq ETX of 0.75 */
 #else /* !RPL_MRHOF_SQUARED_ETX */
-#define MAX_LINK_METRIC     512   /* Eq ETX of 2 */
+//#define MAX_LINK_METRIC     512   /* Eq ETX of 2 */
+#define MAX_LINK_METRIC     2048
 #define PARENT_SWITCH_THRESHOLD 160
 #endif /* !RPL_MRHOF_SQUARED_ETX */
 
