@@ -843,6 +843,13 @@ def process(parsed):
 #                        {'min': 0, 'max': 5},
 #                        1, doMax=True),
 #        )
+        allPlottableData.append(
+            extractData(parsed, "TSCH KA Sent", "#",
+                        lambda x: x['module'] == 'TSCH' and x['info']['event'] == 'sendingKA',
+                        lambda x: 1,
+                        {'min': 0, 'max': 1},
+                        1, doSum=True),
+        )
         allPlottableData.append( 
             extractData(parsed, "TSCH has lost synch!", "#",
                         lambda x: x['module'] == 'TSCH' and x['info']['event'] == 'resync',
