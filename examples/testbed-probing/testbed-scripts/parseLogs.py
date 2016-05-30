@@ -10,32 +10,59 @@ from collections import OrderedDict
 import numpy as np
 
 ROOT = 240
-network = {}
-timeline = OrderedDict()
-parentSwitchCount = 0
+ETXALPHA = 0.15
+INITETX = 0.5
 
-def updateMetric(link, success):
+def updateMetric(network, sender, receiver, success, numtx, gradientFunc, gradientArg):
     newMetric = 1. if success else 0.
-    if link["rxCount"] == 0:
-        link["prr"] = newMetric
+    if network[sender][receiver]["rxCount"] == 0:
+        prr = INITETX if success else 0
     else:
-        link["prr"] = 0.15 * newMetric + 0.85 * link["prr"]
-    link["rxCount"] += 1
+        prr = ETXALPHA * newMetric + (1-ETXALPHA) * network[sender][receiver]["prr"]
+    network[sender][receiver]["rxCount"] += 1
+    network[sender][receiver]["prr"] = prr
     
-def calculateGradient(parent, child):
-    prr = network[child][parent]["prr"]
-    #return network[parent]["gradient"] + ((1.0 / prr**2))
-    return 1 / (network[parent]["e2epdr"] * 1-((1-prr)**16))
+    if prr > 0 and network[receiver]["gradient"] != None: # there is a link sender -> receiver
+        gradient = gradientFunc(network[receiver], prr, numtx, gradientArg)            
+        if network[sender]["gradient"] == None or gradient < network[sender]["gradient"]:
+            network[sender]["gradient"] = gradient
+            network[sender]["e2epdr"] = network[receiver]["e2epdr"] * 1-((1-prr)**numtx)
+            network[sender]["hops"] = network[receiver]["hops"] + 1
+            network[sender]["prr"] = prr
+            network[sender]["parent"] = receiver
+    
+def updateNode(network, curr, numtx, gradientFunc, gradientArg):
+    if curr == ROOT:
+        return
+    network[curr]["gradient"] = None # start over
+    for parent in network:
+        if network[curr][parent]["prr"] > 0 and network[parent]["gradient"] != None: # there is a link ID -> curr
+            prr = network[curr][parent]["prr"]
+            gradient = gradientFunc(network[parent], prr, numtx, gradientArg)            
+            if network[curr]["gradient"] == None or gradient < network[curr]["gradient"]:
+                network[curr]["gradient"] = gradient
+                network[curr]["e2epdr"] = network[parent]["e2epdr"] * 1-((1-prr)**numtx)
+                network[curr]["hops"] = network[parent]["hops"] + 1
+                network[curr]["prr"] = prr
+                network[curr]["parent"] = parent
+    
+def gradientEtx(parent, prr, numtx, exponent):
+    return parent["gradient"] + ((1.0 / prr**exponent))
 
-def dijkstraStep(curr):
+def gradientE2epdr(parent, prr, numtx, noarg):
+    return 1 / (parent["e2epdr"] * 1-((1-prr)**numtx))
+
+
+def dijkstraStep(network, curr, numtx, gradientFunc, gradientArg):
     for id in network:
         if network[id][curr]["prr"] > 0:
             # there is a link ID -> curr
             prr = network[id][curr]["prr"]
-            gradient = calculateGradient(curr, id)
+            gradient = gradientFunc(network[curr], prr, numtx, gradientArg)
+            
             if network[id]["gradient"] == None or gradient < network[id]["gradient"]:
                 network[id]["gradient"] = gradient
-                network[id]["e2epdr"] = network[curr]["e2epdr"] * 1-((1-prr)**16)
+                network[id]["e2epdr"] = network[curr]["e2epdr"] * 1-((1-prr)**numtx)
                 network[id]["hops"] = network[curr]["hops"] + 1
                 network[id]["prr"] = prr
                 network[id]["parent"] = curr
@@ -43,8 +70,8 @@ def dijkstraStep(curr):
     network[curr]["visited"] = True
     return
 
-def diskjtra():
-    global network, parentSwitchCount
+def diskjtra(network, numtx, gradientFunc, gradientArg):
+    parentSwitchCount = 0
     # init
     for id in network:
         network[id]["parent"] = None
@@ -67,7 +94,7 @@ def diskjtra():
                     minGradient = network[id]["gradient"]
                     currentNode = id
         if currentNode != None:
-            dijkstraStep(currentNode)
+            dijkstraStep(network, currentNode, numtx, gradientFunc, gradientArg)
             nodeCount += 1
         else:
             # no more nodes to visit
@@ -77,10 +104,9 @@ def diskjtra():
                 if network[id]["previousParent"] != network[id]["parent"]:
                     network[id]["previousParent"] = network[id]["parent"]
                     parentSwitchCount += 1
-            return
+            return network, parentSwitchCount
         
-def parseTsch(line, time, id, log, asnInfo):
-    global appDataStats, receivedList, timeline
+def parseTsch(line, time, id, log, asnInfo, timeline):
     
     if asnInfo != None:
         asn = asnInfo['asn'] 
@@ -138,13 +164,11 @@ def parseLine(line):
 
 ################################################################################################################################
 
-def main():
+def parse(file):
     
-    if len(sys.argv) < 2:
-        dir = '.'
-    else:
-        dir = sys.argv[1].rstrip('/')
-    file = os.path.join(dir, "log.txt")
+    network = {}
+    allNodes = []
+    timeline = OrderedDict()
 
     allData = []
     baseTime = None
@@ -214,8 +238,8 @@ def main():
 
             linesParsedCount += 1
 
-            if not id in network:
-                network[id] = {}
+            if not id in allNodes:
+                allNodes.append(id)
             
             # process each module separately
             if not module in parsingFunctions:
@@ -223,50 +247,78 @@ def main():
                         
             parsingFunction = parsingFunctions[module]                
             if parsingFunction != None:
-                moduleInfo = parsingFunction(line, time, id, log, asnInfo)
+                parsingFunction(line, time, id, log, asnInfo, timeline)
                       
     print "Parsed %d/%d lines" %(linesParsedCount, len(allLines))
+    return timeline, allNodes
           
-    #asn = 1516
-    #for node in  timeline[asn]:
-    #   print timeline[asn][node]
-    print "Number of nodes: %u" %(len(network.keys()))
-    #for id in network.keys():
+def runDisktra(timeline, allNodes, numtx, gradientFunc, gradientArg):
     
+    print "Number of nodes: %u" %(len(allNodes))
+    
+    network = {}
     # init
-    for sender in network.keys():
+    for sender in allNodes:
+        network[sender] = {}
+        network[sender]["gradient"] = None        
         network[sender]["previousParent"] = None
-        for id in network.keys():
+        network[sender]["parent"] = None
+        for id in allNodes:
             network[sender][id] = {"rxCount": 0, "prr": 0}
+
+    network[ROOT]["gradient"] = 1.0 # RPL ETX 1
+    network[ROOT]["e2epdr"] = 1.0
+    network[ROOT]["hops"] = 0
+    network[ROOT]["prr"] = 1    
+    parentSwitchCount = 0
     
-    round = 0
     for asn in timeline:
-        #print "ASN: %x" %(asn)
+        
         sender = None
         for id in timeline[asn]:
             if timeline[asn][id]['event'] == 'Tx':
+                if sender != None:
+                    print "Warning!! two senders at asn 0x%x: %u and %u" %(asn, sender, id)
                 sender = id
-                break
+#                break
         
         if sender == None:
             continue
-        for id in network.keys():
+        for id in allNodes:
+            prevParent = network[sender]["parent"]
             if id in timeline[asn] and timeline[asn][id]['event'] == 'Rx':
-                updateMetric(network[sender][id], True)
+                updateMetric(network, sender, id, True, numtx, gradientFunc, gradientArg)
             else:
-                updateMetric(network[sender][id], False) 
-        
-    diskjtra()
-    hopsAll = map(lambda x: network[x]["hops"], network)
-    e2epdrAll = map(lambda x: network[x]["e2epdr"], network)
-    prrAll = map(lambda x: network[x]["prr"], network)
-    print "--- Round %u"%(round)
-    print "parent switches %d"%(parentSwitchCount)
-    print "hops: mean %f" %(np.mean(hopsAll))
-    print "prr: mean %f" %(np.mean(prrAll))
-    print "e22pdr: mean %f" %(np.mean(e2epdrAll))
-    print "e22pdr: median %f" %(np.median(e2epdrAll))
-    print "e22pdr: 90p %f" %(np.percentile(e2epdrAll, 10))
-    print "e22pdr: min %f" %(np.min(e2epdrAll))
+                updateMetric(network, sender, id, False, numtx, gradientFunc, gradientArg)
+            
+            #updateNode(network, sender, numtx, gradientFunc, gradientArg)
+            newParent = network[sender]["parent"]
+            if newParent != prevParent:
+                parentSwitchCount += 1
 
-main()
+    #network, disktraParentSwitchCount = diskjtra(network, numtx, gradientFunc, gradientArg)
+    #return {"network": network, "parentSwitchCount": parentSwitchCount}
+    return {"network": network, "hopsAll": map(lambda x: network[x]["hops"], network), "parentSwitchCount": parentSwitchCount,
+            "e2epdrAll": map(lambda x: network[x]["e2epdr"], network), "prrAll": map(lambda x: network[x]["prr"], network)}
+    
+def main():
+    if len(sys.argv) < 2:
+        dir = '.'
+    else:
+        dir = sys.argv[1].rstrip('/')
+    file = os.path.join(dir, "log.txt")
+    
+    timeline, allNodes = parse(file)
+    res = runDisktra(timeline, allNodes, 9, gradientEtx, 1)
+    
+    #hopsAll = 
+    #e2epdrAll = map(lambda x: network[x]["e2epdr"], network)
+    #prrAll = map(lambda x: network[x]["prr"], network)
+    
+    print "parent switches %d"%(res["parentSwitchCount"])
+    print "hops: mean %f" %(np.mean(res["hopsAll"]))
+    print "prr: mean %f" %(np.mean(res["prrAll"]))
+    print "e22pdr: mean %f" %(np.mean(res["e2epdrAll"]))
+    print "e22pdr: median %f" %(np.median(res["e2epdrAll"]))
+    print "e22pdr: 90p %f" %(np.percentile(res["e2epdrAll"], 10))
+    print "e22pdr: min %f" %(np.min(res["e2epdrAll"]))
