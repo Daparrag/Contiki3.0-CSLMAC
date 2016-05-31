@@ -53,8 +53,8 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-//#define START_DELAY (2 * 60 * CLOCK_SECOND)
-#define START_DELAY (2 * 5 * CLOCK_SECOND)
+#define START_DELAY (2 * 60 * CLOCK_SECOND)
+//#define START_DELAY (2 * 5 * CLOCK_SECOND)
 #define ASN_STEP (100 * 60)
 
 static struct asn_t next_asn;
@@ -70,26 +70,26 @@ print_network_status(int count)
 {
   uip_ds6_defrt_t *default_route;
 
-  PRINTF("Info: [%u] --- Network status --- (asn %lu %lu)\n", count, current_asn.ls4b, next_asn.ls4b);
+  PRINTF("Stat: [%u] --- Network status --- (asn %lu %lu)\n", count, current_asn.ls4b, next_asn.ls4b);
 
   /* Our default route */
-  PRINTF("Info: [%u] - Default route:\n", count);
+  PRINTF("Stat: [%u] - Default route:\n", count);
   default_route = uip_ds6_defrt_lookup(uip_ds6_defrt_choose());
   if(default_route != NULL) {
-    PRINTF("Info: [%u] NetStatus: ", count);
+    PRINTF("Stat: [%u] NetStatus: ", count);
     PRINT6ADDR(&default_route->ipaddr);;
     PRINTF(" (lifetime: %lu seconds)\n", (unsigned long)default_route->lifetime.interval);
   } else {
-    PRINTF("Info: [%u]\n", count);
+    PRINTF("Stat: [%u]\n", count);
   }
 
 #if RPL_WITH_STORING
   /* Our routing entries */
   uip_ds6_route_t *route;
-  PRINTF("Info: [%u] - Routing entries (%u in total):\n", count, uip_ds6_route_num_routes());
+  PRINTF("Stat: [%u] - Routing entries (%u in total):\n", count, uip_ds6_route_num_routes());
   route = uip_ds6_route_head();
   while(route != NULL) {
-    PRINTF("Info: [%u] NetStatus: ", count);
+    PRINTF("Stat: [%u] NetStatus: ", count);
     PRINT6ADDR(&route->ipaddr);
     PRINTF(" via ");
     PRINT6ADDR(uip_ds6_route_nexthop(route));
@@ -101,7 +101,7 @@ print_network_status(int count)
 #if RPL_WITH_NON_STORING
   /* Our routing links */
   rpl_ns_node_t *link;
-  PRINTF("Info: [%u] - Routing links (%u in total):\n", count, rpl_ns_num_nodes());
+  PRINTF("Stat: [%u] - Routing links (%u in total):\n", count, rpl_ns_num_nodes());
   link = rpl_ns_node_head();
   while(link != NULL) {
     if(link->parent != NULL) {
@@ -109,7 +109,7 @@ print_network_status(int count)
       uip_ipaddr_t parent_ipaddr;
       rpl_ns_get_node_global_addr(&child_ipaddr, link);
       rpl_ns_get_node_global_addr(&parent_ipaddr, link->parent);
-      PRINTF("Info: [%u] NetStatus: ", count);
+      PRINTF("Stat: [%u] NetStatus: ", count);
       PRINT6ADDR(&child_ipaddr);
       PRINTF(" to ");
       PRINT6ADDR(&parent_ipaddr);
@@ -119,7 +119,7 @@ print_network_status(int count)
   }
 #endif
 
-  PRINTF("Info: [%u] ----------------------\n", count);
+  PRINTF("Stat: [%u] ----------------------\n", count);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -134,7 +134,7 @@ PROCESS_THREAD(app_rpl_process, ev, data)
   PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
 
   if(deployment_init(&global_ipaddr, NULL, ROOT_ID)) {
-    //LOG("App: %u start\n", node_id);
+    LOG("App: %u start\n", node_id);
   } else {
     etimer_set(&periodic_timer, 60 * CLOCK_SECOND);
     while(1) {
