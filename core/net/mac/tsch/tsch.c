@@ -187,7 +187,7 @@ tsch_set_ka_timeout(uint32_t timeout)
 void
 tsch_set_eb_period(uint32_t period)
 {
-  tsch_current_eb_period = period;
+  tsch_current_eb_period = MIN(period, TSCH_CONF_MAX_EB_PERIOD);
 }
 /*---------------------------------------------------------------------------*/
 static void
