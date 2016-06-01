@@ -12,99 +12,51 @@ import numpy as np
 ROOT = 240
 ETXALPHA = 0.15
 INITETX = 0.5
-
+    
+def rtxSuccessRate(prr, numtx):
+    #return 1-((1-prr)**numtx)
+    return min(1-((1-prr)**numtx), 1-(10**-16))
+    
 def updateMetric(network, sender, receiver, success, numtx, gradientFunc, gradientArg):
+    gradient = None
     newMetric = 1. if success else 0.
-    if network[sender][receiver]["rxCount"] == 0:
-        prr = INITETX if success else 0
+    if network[sender][receiver]["updateCount"] == 0:
+        prr = INITETX if success else 0.
     else:
         prr = ETXALPHA * newMetric + (1-ETXALPHA) * network[sender][receiver]["prr"]
-    network[sender][receiver]["rxCount"] += 1
+    if success:
+        network[sender][receiver]["rxCount"] += 1
+    network[sender][receiver]["updateCount"] += 1
     network[sender][receiver]["prr"] = prr
-    
+            
     if prr > 0 and network[receiver]["gradient"] != None: # there is a link sender -> receiver
-        gradient = gradientFunc(network[receiver], prr, numtx, gradientArg)            
-        if network[sender]["gradient"] == None or gradient < network[sender]["gradient"]:
-            network[sender]["gradient"] = gradient
-            network[sender]["e2epdr"] = network[receiver]["e2epdr"] * 1-((1-prr)**numtx)
-            network[sender]["hops"] = network[receiver]["hops"] + 1
-            network[sender]["prr"] = prr
-            network[sender]["parent"] = receiver
+        if network[receiver][sender]["rxCount"] > 0: # we have heard at least once from the node
+            gradient = gradientFunc(network[receiver], prr, numtx, gradientArg)            
+            if network[sender]["gradient"] == None or gradient < network[sender]["gradient"]:
+                network[sender]["parent"] = receiver  
     
-def updateNode(network, curr, numtx, gradientFunc, gradientArg):
-    if curr == ROOT:
-        return
-    network[curr]["gradient"] = None # start over
-    for parent in network:
-        if network[curr][parent]["prr"] > 0 and network[parent]["gradient"] != None: # there is a link ID -> curr
-            prr = network[curr][parent]["prr"]
-            gradient = gradientFunc(network[parent], prr, numtx, gradientArg)            
-            if network[curr]["gradient"] == None or gradient < network[curr]["gradient"]:
-                network[curr]["gradient"] = gradient
-                network[curr]["e2epdr"] = network[parent]["e2epdr"] * 1-((1-prr)**numtx)
-                network[curr]["hops"] = network[parent]["hops"] + 1
-                network[curr]["prr"] = prr
-                network[curr]["parent"] = parent
-    
+                
+    if network[sender]["parent"] == receiver:
+        downprr = network[receiver][sender]["prr"]
+        if gradient == None:
+            gradient = gradientFunc(network[receiver], prr, numtx, gradientArg)
+        network[sender]["e2epdr"] = network[receiver]["e2epdr"] * rtxSuccessRate(prr, numtx)
+        network[sender]["gradient"] = gradient
+        network[sender]["hops"] = network[receiver]["hops"] + 1
+        network[sender]["prr"] = prr
+        network[sender]["parent"] = receiver
+        
+        network[sender]["downprr"] = downprr
+        network[sender]["downe2epdr"] = network[receiver]["downe2epdr"] * rtxSuccessRate(downprr, numtx)
+
 def gradientEtx(parent, prr, numtx, exponent):
     return parent["gradient"] + ((1.0 / prr**exponent))
 
 def gradientE2epdr(parent, prr, numtx, noarg):
-    return 1 / (parent["e2epdr"] * 1-((1-prr)**numtx))
+    return 1.-(parent["e2epdr"] * rtxSuccessRate(prr, numtx))
 
-
-def dijkstraStep(network, curr, numtx, gradientFunc, gradientArg):
-    for id in network:
-        if network[id][curr]["prr"] > 0:
-            # there is a link ID -> curr
-            prr = network[id][curr]["prr"]
-            gradient = gradientFunc(network[curr], prr, numtx, gradientArg)
-            
-            if network[id]["gradient"] == None or gradient < network[id]["gradient"]:
-                network[id]["gradient"] = gradient
-                network[id]["e2epdr"] = network[curr]["e2epdr"] * 1-((1-prr)**numtx)
-                network[id]["hops"] = network[curr]["hops"] + 1
-                network[id]["prr"] = prr
-                network[id]["parent"] = curr
-            
-    network[curr]["visited"] = True
-    return
-
-def diskjtra(network, numtx, gradientFunc, gradientArg):
-    parentSwitchCount = 0
-    # init
-    for id in network:
-        network[id]["parent"] = None
-        network[id]["gradient"] = None
-        network[id]["visited"] = False
-    
-    network[ROOT]["gradient"] = 1.0 # RPL ETX 1
-    network[ROOT]["e2epdr"] = 1.0
-    network[ROOT]["hops"] = 0
-    network[ROOT]["prr"] = 1
-    nodeCount = 0
-    
-    while True:
-        # select current node and run it
-        minGradient = None
-        currentNode = None
-        for id in network:
-            if not network[id]["visited"] and network[id]["gradient"] != None:
-                if minGradient == None or network[id]["gradient"] < minGradient:
-                    minGradient = network[id]["gradient"]
-                    currentNode = id
-        if currentNode != None:
-            dijkstraStep(network, currentNode, numtx, gradientFunc, gradientArg)
-            nodeCount += 1
-        else:
-            # no more nodes to visit
-            print "Dijkstra done, %u nodes" %(nodeCount)
-            parentSwitchCount = 0
-            for id in network:
-                if network[id]["previousParent"] != network[id]["parent"]:
-                    network[id]["previousParent"] = network[id]["parent"]
-                    parentSwitchCount += 1
-            return network, parentSwitchCount
+def gradientExp(parent, prr, numtx, base):
+    return parent["gradient"] + ((base**(4.0/prr)))
         
 def parseTsch(line, time, id, log, asnInfo, timeline):
     
@@ -116,15 +68,14 @@ def parseTsch(line, time, id, log, asnInfo, timeline):
         channel = asnInfo['channel']
                 
 #---- TSCH link: Rx -------------------------------------------------------------------------------------------------------------
-        res = re.compile('([ub]c)-([01])-\d+ (\d+) rx (\d+), edr ([-\d]+)').match(log)
-
+        res = re.compile('([ub]c)-([01])-\d+ (\d+) rx (\d+).*rssi ([-\d]+)').match(log)
+        
         if res:
             is_unicast = res.group(1) == "uc"
             is_data = int(res.group(2))
             datalen = int(res.group(3))
             src = int(res.group(4))
-            edr = int(res.group(5))
-            rssi = 0#int(res.group(6))
+            rssi = int(res.group(5))
             
             moduleInfo = {'event': 'Rx', 'src': src, 'asnInfo': asnInfo, 'rssi': rssi }
                                     
@@ -180,12 +131,13 @@ def parse(file):
                         }
     
     linesParsedCount = 0
-    allLines = open(file, 'r').readlines()
     
-    #for line in allLines:
+    #for line in open(file, 'r').readlines():
+    lineCount = 0
     for line in open(file, 'r').readlines()[:300000]:
     #for line in open(file, 'r').readlines()[-20000:]:
 
+        lineCount += 1
         log = None
         module = None
         # match time, id, module, log; The common format for all log lines
@@ -235,6 +187,7 @@ def parse(file):
                 asnInfo = {'asn': asn,
                       'slotframe': slotframe, 'slotframe_len': slotframe_len, 'timeslot': timeslot, 'channel_offset': channel_offset,
                       'channel': channel }
+                
 
             linesParsedCount += 1
 
@@ -247,9 +200,9 @@ def parse(file):
                         
             parsingFunction = parsingFunctions[module]                
             if parsingFunction != None:
-                parsingFunction(line, time, id, log, asnInfo, timeline)
+                ret = parsingFunction(line, time, id, log, asnInfo, timeline)
                       
-    print "Parsed %d/%d lines" %(linesParsedCount, len(allLines))
+    print "Parsed %d/%d lines" %(linesParsedCount, lineCount)
     return timeline, allNodes
           
 def runDisktra(timeline, allNodes, numtx, gradientFunc, gradientArg):
@@ -263,17 +216,20 @@ def runDisktra(timeline, allNodes, numtx, gradientFunc, gradientArg):
         network[sender]["gradient"] = None        
         network[sender]["previousParent"] = None
         network[sender]["parent"] = None
+        network[sender]["parentSwitchCount"] = 0
+        network[sender]["hopSum"] = 0.
+        network[sender]["hopSumCount"] = 0
         for id in allNodes:
-            network[sender][id] = {"rxCount": 0, "prr": 0}
+            network[sender][id] = {"rxCount": 0, "updateCount": 0, "prr": 0}
 
-    network[ROOT]["gradient"] = 1.0 # RPL ETX 1
+    network[ROOT]["gradient"] = 0.0 # ETX 0 or loss rate 0
     network[ROOT]["e2epdr"] = 1.0
-    network[ROOT]["hops"] = 0
-    network[ROOT]["prr"] = 1    
+    network[ROOT]["downe2epdr"] = 1.0
+    network[ROOT]["hops"] = 0.0
+    network[ROOT]["prr"] = 1.0   
     parentSwitchCount = 0
-    
-    for asn in timeline:
         
+    for asn in timeline:
         sender = None
         for id in timeline[asn]:
             if timeline[asn][id]['event'] == 'Tx':
@@ -284,6 +240,7 @@ def runDisktra(timeline, allNodes, numtx, gradientFunc, gradientArg):
         
         if sender == None:
             continue
+        
         for id in allNodes:
             prevParent = network[sender]["parent"]
             if id in timeline[asn] and timeline[asn][id]['event'] == 'Rx':
@@ -291,16 +248,86 @@ def runDisktra(timeline, allNodes, numtx, gradientFunc, gradientArg):
             else:
                 updateMetric(network, sender, id, False, numtx, gradientFunc, gradientArg)
             
-            #updateNode(network, sender, numtx, gradientFunc, gradientArg)
             newParent = network[sender]["parent"]
             if newParent != prevParent:
-                parentSwitchCount += 1
-
-    #network, disktraParentSwitchCount = diskjtra(network, numtx, gradientFunc, gradientArg)
-    #return {"network": network, "parentSwitchCount": parentSwitchCount}
-    return {"network": network, "hopsAll": map(lambda x: network[x]["hops"], network), "parentSwitchCount": parentSwitchCount,
-            "e2epdrAll": map(lambda x: network[x]["e2epdr"], network), "prrAll": map(lambda x: network[x]["prr"], network)}
+                network[sender]["parentSwitchCount"] += 1
+            if network[sender]["gradient"] != None: # the node is connected
+                network[sender]["hopSum"] += network[sender]["hops"]
+                network[sender]["hopSumCount"] += 1
     
+    for id in allNodes:
+        parent = network[id]["parent"]
+        network[id]["hops"] = network[id]["hopSum"] / network[id]["hopSumCount"]
+       # if parent != None:
+        #    prr = network[id][parent]["prr"]
+         #   network[id]["downprr"] = network[parent][id]["prr"]
+        
+    del network[ROOT]
+
+    return {"network": network, "hopsAll": map(lambda x: network[x]["hops"], network), "switchAll": map(lambda x: network[x]["parentSwitchCount"], network),
+            "e2epdrAll": map(lambda x: network[x]["e2epdr"], network), "prrAll": map(lambda x: network[x]["prr"], network),
+            "downPrrAll": map(lambda x: network[x]["downprr"], network),
+            "prrAsym": map(lambda x: network[x]["downprr"] - network[x]["prr"], network),
+            "downe2epdrAll": map(lambda x: network[x]["downe2epdr"], network)
+            }
+    
+def getPlotData(timeline, allNodes):
+    resEtx = runDisktra(timeline, allNodes, 9, gradientEtx, 1)
+    resEtx2 = runDisktra(timeline, allNodes, 9, gradientEtx, 2)
+    resEtx3 = runDisktra(timeline, allNodes, 9, gradientEtx, 3)
+    resEtx4 = runDisktra(timeline, allNodes, 9, gradientEtx, 4)
+    resE2e = runDisktra(timeline, allNodes, 9, gradientE2epdr, 0)
+    #resExp = runDisktra(timeline, allNodes, 9, gradientExp, 2)
+    return [resEtx, resEtx2, resEtx3, resEtx4, resE2e]
+
+def doPlot(allRes, filename, ylabel, ymin=None, ymax=None, yscale=None):
+    matplotlib.rcParams.update({'font.size': 22})
+    plt.figure()
+    plt.boxplot(allRes)
+    plt.xlabel("Metric", fontsize = 28)
+    plt.xticks(range(1,6), ["ETX", "ETX$^2$", "ETX$^3$", "ETX$^4$", "1-PDR"])
+    plt.ylabel(ylabel, fontsize = 28)
+    if yscale != None:
+        plt.yscale(yscale)
+    plt.ylim(ymin, ymax)
+    plt.grid()
+    plt.savefig('plot_%s.pdf'%(filename), format='pdf', bbox_inches='tight', pad_inches=0)
+
+def getColor(prr):
+    c1 = (0,1,0.5)
+    c2 = (0.5,0,1)
+    return (c1[0]*prr + c2[0]*(1-prr), c1[1]*prr + c2[1]*(1-prr), c1[2]*prr + c2[2]*(1-prr))
+
+def plotAsym(res, filename, ylabel=False):
+    matplotlib.rcParams.update({'font.size': 16})
+    plt.figure(figsize=(3,8))
+    
+    data = [100*array(res["prrAll"]), 100*array(res["downPrrAll"])]
+    #color = [item for item in resEtx["prrAll"]]
+    plt.xticks(range(2), ["Up", "Down"])
+    #plt.plot(data, color="green", alpha=0.3)
+    #plt.plot(data, c = color)
+    for i in range(len(res["prrAll"])):
+        plt.plot([100*res["prrAll"][i], 100*res["downPrrAll"][i]], c = getColor(res["prrAll"][i]), alpha=0.5)
+    plt.ylim(0, 4)
+    plt.ylim(0, 100)
+    if ylabel:
+        plt.ylabel("Link PRR (%)", fontsize = 20)
+    plt.savefig('plot_parallel_prr_%s.pdf'%(filename), format='pdf', bbox_inches='tight', pad_inches=0)
+    
+def plotAll(allRes):
+    #for metric in ["hopsAll", "prrAll", "e2epdrAll", "switchAll"]:
+    doPlot(list(map(lambda x: x["hopsAll"], allRes)), "hops", "Hops (#)", ymin=0)
+    doPlot(list(array(map(lambda x: x["prrAll"], allRes)) * 100) , "prr", "Link PRR (%)", ymin=0, ymax=101)
+    doPlot(list(array(map(lambda x: x["downPrrAll"], allRes)) * 100) , "downprr", "Down Link PRR (%)", ymin=0, ymax=101)
+    doPlot(list(1 - array(map(lambda x: x["e2epdrAll"], allRes))), "pdr", "E2E Loss Rate", yscale='log', ymax=1, ymin=10**-15) #ymax=1, ymin=10**-16
+    doPlot(list(1 - array(map(lambda x: x["downe2epdrAll"], allRes))), "downpdr", "Down E2E Loss Rate", yscale='log', ymax=1, ymin=10**-15)
+    doPlot(list(map(lambda x: x["switchAll"], allRes)), "ps", "Parent Switches (#)")
+    doPlot(list(array(map(lambda x: x["prrAsym"], allRes)) * 100) , "prrasym", "Link Asymmetry (pp)")
+    plotAsym(allRes[0], "etx", ylabel=True)
+    plotAsym(allRes[1], "etx2")
+    plotAsym(allRes[4], "e2e")
+
 def main():
     if len(sys.argv) < 2:
         dir = '.'
@@ -309,7 +336,8 @@ def main():
     file = os.path.join(dir, "log.txt")
     
     timeline, allNodes = parse(file)
-    res = runDisktra(timeline, allNodes, 9, gradientEtx, 1)
+    allRes = getPlotData(timeline, allNodes)
+    plotAll(allRes)
     
     #hopsAll = 
     #e2epdrAll = map(lambda x: network[x]["e2epdr"], network)
@@ -322,3 +350,8 @@ def main():
     print "e22pdr: median %f" %(np.median(res["e2epdrAll"]))
     print "e22pdr: 90p %f" %(np.percentile(res["e2epdrAll"], 10))
     print "e22pdr: min %f" %(np.min(res["e2epdrAll"]))
+    
+#execfile("../parseLogs.py")
+#timeline, allNodes = parse("log.txt")
+#allRes = getPlotData(timeline, allNodes)
+#plotAll(allRes)
