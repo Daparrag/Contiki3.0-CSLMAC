@@ -17,21 +17,35 @@ def rtxSuccessRate(prr, numtx):
     #return 1-((1-prr)**numtx)
     return min(1-((1-prr)**numtx), 1-(10**-16))
     
-def updateMetric(network, sender, receiver, success, numtx, gradientFunc, gradientArg):
+def guess_etx_from_rssi(rssi):
+    ETX_INIT_MAX = 3
+    RSSI_HIGH = -60
+    RSSI_LOW = -90
+    RSSI_DIFF = (RSSI_HIGH - RSSI_LOW)
+    bounded_rssi = rssi
+    bounded_rssi = min(bounded_rssi, RSSI_HIGH)
+    bounded_rssi = max(bounded_rssi, RSSI_LOW + 1)
+    etx = RSSI_DIFF / (bounded_rssi - RSSI_LOW)
+    return min(etx, ETX_INIT_MAX)
+    
+def updateMetric(network, sender, receiver, success, numtx, gradientFunc, gradientArg, newRssi):
     gradient = None
     newMetric = 1. if success else 0.
     if network[sender][receiver]["updateCount"] == 0:
         prr = INITETX if success else 0.
+        rssi = newRssi
     else:
         prr = ETXALPHA * newMetric + (1-ETXALPHA) * network[sender][receiver]["prr"]
+        rssi = ETXALPHA * newRssi + (1-ETXALPHA) * network[sender][receiver]["rssi"]
     if success:
         network[sender][receiver]["rxCount"] += 1
     network[sender][receiver]["updateCount"] += 1
     network[sender][receiver]["prr"] = prr
+    network[sender][receiver]["rssi"] = rssi
             
     if prr > 0 and network[receiver]["gradient"] != None: # there is a link sender -> receiver
         if network[receiver][sender]["rxCount"] > 0: # we have heard at least once from the node
-            gradient = gradientFunc(network[receiver], prr, numtx, gradientArg)            
+            gradient = gradientFunc(network, sender, receiver, prr, numtx, gradientArg)            
             if network[sender]["gradient"] == None or gradient < network[sender]["gradient"]:
                 network[sender]["parent"] = receiver  
     
@@ -39,7 +53,7 @@ def updateMetric(network, sender, receiver, success, numtx, gradientFunc, gradie
     if network[sender]["parent"] == receiver:
         downprr = network[receiver][sender]["prr"]
         if gradient == None:
-            gradient = gradientFunc(network[receiver], prr, numtx, gradientArg)
+            gradient = gradientFunc(network, sender, receiver, prr, numtx, gradientArg)
         network[sender]["e2epdr"] = network[receiver]["e2epdr"] * rtxSuccessRate(prr, numtx)
         network[sender]["gradient"] = gradient
         network[sender]["hops"] = network[receiver]["hops"] + 1
@@ -49,14 +63,14 @@ def updateMetric(network, sender, receiver, success, numtx, gradientFunc, gradie
         network[sender]["downprr"] = downprr
         network[sender]["downe2epdr"] = network[receiver]["downe2epdr"] * rtxSuccessRate(downprr, numtx)
 
-def gradientEtx(parent, prr, numtx, exponent):
-    return parent["gradient"] + ((1.0 / prr**exponent))
+def gradientEtxRssi(network, child, parent, prr, numtx, exponent):
+    return network[parent]["gradient"] + ((((1.0 / prr**exponent)) + guess_etx_from_rssi(network[child][parent]["rssi"])) / 2)
 
-def gradientE2epdr(parent, prr, numtx, noarg):
-    return 1.-(parent["e2epdr"] * rtxSuccessRate(prr, numtx))
+def gradientEtx(network, child, parent, prr, numtx, exponent):
+    return network[parent]["gradient"] + ((1.0 / prr**exponent))
 
-def gradientExp(parent, prr, numtx, base):
-    return parent["gradient"] + ((base**(4.0/prr)))
+def gradientE2epdr(network, child, parent, prr, numtx, noarg):
+    return 1.-(network[parent]["e2epdr"] * rtxSuccessRate(prr, numtx))
         
 def parseTsch(line, time, id, log, asnInfo, timeline):
     
@@ -134,7 +148,7 @@ def parse(file):
     
     #for line in open(file, 'r').readlines():
     lineCount = 0
-    for line in open(file, 'r').readlines()[:300000]:
+    for line in open(file, 'r').readlines()[:500000]:
     #for line in open(file, 'r').readlines()[-20000:]:
 
         lineCount += 1
@@ -244,9 +258,9 @@ def runDisktra(timeline, allNodes, numtx, gradientFunc, gradientArg):
         for id in allNodes:
             prevParent = network[sender]["parent"]
             if id in timeline[asn] and timeline[asn][id]['event'] == 'Rx':
-                updateMetric(network, sender, id, True, numtx, gradientFunc, gradientArg)
+                updateMetric(network, sender, id, True, numtx, gradientFunc, gradientArg, timeline[asn][id]['rssi'])
             else:
-                updateMetric(network, sender, id, False, numtx, gradientFunc, gradientArg)
+                updateMetric(network, sender, id, False, numtx, gradientFunc, gradientArg, 0)
             
             newParent = network[sender]["parent"]
             if newParent != prevParent:
@@ -270,14 +284,26 @@ def runDisktra(timeline, allNodes, numtx, gradientFunc, gradientArg):
             "prrAsym": map(lambda x: network[x]["downprr"] - network[x]["prr"], network),
             "downe2epdrAll": map(lambda x: network[x]["downe2epdr"], network)
             }
-    
+
+def getAllPrr(res):
+    network = res["network"]
+    allPrr = []
+    for i in network.keys():
+        for j in network.keys():
+            if j > i:
+                if network[i][j]["prr"] > 0 or network[j][i]["prr"] > 0:
+                    allPrr.append((100*network[i][j]["prr"], 100*network[j][i]["prr"]))
+    allPrr = allPrr[::10]
+    allPrr = zip(*sorted(allPrr, reverse=True))
+    return allPrr
+
 def getPlotData(timeline, allNodes):
     resEtx = runDisktra(timeline, allNodes, 9, gradientEtx, 1)
     resEtx2 = runDisktra(timeline, allNodes, 9, gradientEtx, 2)
     resEtx3 = runDisktra(timeline, allNodes, 9, gradientEtx, 3)
     resEtx4 = runDisktra(timeline, allNodes, 9, gradientEtx, 4)
     resE2e = runDisktra(timeline, allNodes, 9, gradientE2epdr, 0)
-    #resExp = runDisktra(timeline, allNodes, 9, gradientExp, 2)
+    #resEtx2Rssi = runDisktra(timeline, allNodes, 9, gradientEtxRssi, 2)
     return [resEtx, resEtx2, resEtx3, resEtx4, resE2e]
 
 def doPlot(allRes, filename, ylabel, ymin=None, ymax=None, yscale=None):
@@ -291,42 +317,58 @@ def doPlot(allRes, filename, ylabel, ymin=None, ymax=None, yscale=None):
         plt.yscale(yscale)
     plt.ylim(ymin, ymax)
     plt.grid()
-    plt.savefig('plot_%s.pdf'%(filename), format='pdf', bbox_inches='tight', pad_inches=0)
+    plt.savefig('plot_%s.pdf'%(filename), format='pdf', bbox_inches='tight', pad_inches=0.05)
 
 def getColor(prr):
-    c1 = (0,1,0.5)
-    c2 = (0.5,0,1)
-    return (c1[0]*prr + c2[0]*(1-prr), c1[1]*prr + c2[1]*(1-prr), c1[2]*prr + c2[2]*(1-prr))
+    c1 = (0,   1, 0.5)
+    c2 = (0.5, 0, 1)
+    return ((c1[0]*prr + c2[0]*(1-prr)), (c1[1]*prr + c2[1]*(1-prr)), (c1[2]*prr + c2[2]*(1-prr)))
 
-def plotAsym(res, filename, ylabel=False):
+def plotAsym(ax, data, filename, ylabel=False):
     matplotlib.rcParams.update({'font.size': 16})
-    plt.figure(figsize=(3,8))
+    #plt.figure(figsize=(3,8))
     
-    data = [100*array(res["prrAll"]), 100*array(res["downPrrAll"])]
-    #color = [item for item in resEtx["prrAll"]]
-    plt.xticks(range(2), ["Up", "Down"])
-    #plt.plot(data, color="green", alpha=0.3)
-    #plt.plot(data, c = color)
-    for i in range(len(res["prrAll"])):
-        plt.plot([100*res["prrAll"][i], 100*res["downPrrAll"][i]], c = getColor(res["prrAll"][i]), alpha=0.5)
-    plt.ylim(0, 4)
-    plt.ylim(0, 100)
-    if ylabel:
-        plt.ylabel("Link PRR (%)", fontsize = 20)
-    plt.savefig('plot_parallel_prr_%s.pdf'%(filename), format='pdf', bbox_inches='tight', pad_inches=0)
+    for i in range(len(data[0])):
+        ax.plot([data[0][i], data[1][i]], c = getColor(data[0][i] / 100.), alpha=0.5)
+    #ax.ylim(0, 4)
+    #ax.ylim(0, 100)
+    #if ylabel:
+     #   plt.ylabel("Link PRR (%)", fontsize = 20)
     
 def plotAll(allRes):
-    #for metric in ["hopsAll", "prrAll", "e2epdrAll", "switchAll"]:
+    
     doPlot(list(map(lambda x: x["hopsAll"], allRes)), "hops", "Hops (#)", ymin=0)
     doPlot(list(array(map(lambda x: x["prrAll"], allRes)) * 100) , "prr", "Link PRR (%)", ymin=0, ymax=101)
     doPlot(list(array(map(lambda x: x["downPrrAll"], allRes)) * 100) , "downprr", "Down Link PRR (%)", ymin=0, ymax=101)
-    doPlot(list(1 - array(map(lambda x: x["e2epdrAll"], allRes))), "pdr", "E2E Loss Rate", yscale='log', ymax=1, ymin=10**-15) #ymax=1, ymin=10**-16
-    doPlot(list(1 - array(map(lambda x: x["downe2epdrAll"], allRes))), "downpdr", "Down E2E Loss Rate", yscale='log', ymax=1, ymin=10**-15)
+    doPlot(list(1 - array(map(lambda x: x["e2epdrAll"], allRes))), "pdr", "E2E Loss Rate", yscale='log', ymax=1, ymin=10**-16) #ymax=1, ymin=10**-16
+    doPlot(list(1 - array(map(lambda x: x["downe2epdrAll"], allRes))), "downpdr", "Down E2E Loss Rate", yscale='log', ymax=1, ymin=10**-16)
     doPlot(list(map(lambda x: x["switchAll"], allRes)), "ps", "Parent Switches (#)")
     doPlot(list(array(map(lambda x: x["prrAsym"], allRes)) * 100) , "prrasym", "Link Asymmetry (pp)")
-    plotAsym(allRes[0], "etx", ylabel=True)
-    plotAsym(allRes[1], "etx2")
-    plotAsym(allRes[4], "e2e")
+    
+    resEtx = allRes[0]
+    resEtx2 = allRes[1]
+    resE2e = allRes[4]
+    
+    f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+    ax1.set_ylabel('Link PRR (%)')
+    ax1.set_title("All links")
+    ax1.set_xticks([])
+    ax2.set_title("ETX")
+    ax2.set_xticks([0, 1])
+    ax2.set_xticklabels(["Up", "Down"])
+    ax2.get_xaxis().majorTicks[1].label1.set_horizontalalignment('right')
+    ax2.get_xaxis().majorTicks[0].label1.set_horizontalalignment('left')
+    ax3.set_title("ETX$^2$")
+    ax3.set_xticks([0, 1])
+    ax3.set_xticklabels(["Up", "Down"])
+    ax3.get_xaxis().majorTicks[1].label1.set_horizontalalignment('right')
+    ax3.get_xaxis().majorTicks[0].label1.set_horizontalalignment('left')    
+    #plt.setp((ax1, ax2, ax3), xticks = range(2), xtickslabels=["Up", "Down"])
+    plotAsym(ax1, getAllPrr(resEtx), "alllinks")
+    plotAsym(ax2, [100*array(resEtx["prrAll"]), 100*array(resEtx["downPrrAll"])], "etx", ylabel=True)
+    plotAsym(ax3, [100*array(resEtx2["prrAll"]), 100*array(resEtx2["downPrrAll"])], "etx2")
+    #plotAsym([100*array(resE2e["prrAll"]), 100*array(resE2e["downPrrAll"])], "e2e")
+    f.savefig('plot_parallel_prr_all.pdf', format='pdf', bbox_inches='tight', pad_inches=0.05)
 
 def main():
     if len(sys.argv) < 2:
