@@ -70,21 +70,22 @@
 #define RPL_MRHOF_SQUARED_ETX 1
 #endif /* RPL_MRHOF_CONF_SQUARED_ETX */
 
-#if !RPL_MRHOF_SQUARED_ETX
+#if RPL_MRHOF_SQUARED_ETX == 0
 /* Configuration parameters of RFC6719. Reject parents that have a higher
- * link metric than the following. The default value is 512 but we use 1024. */
-//#define MAX_LINK_METRIC     256   /* Eq ETX of 2 */
+ * link metric than the following. The default value is 512. */
 #define MAX_LINK_METRIC     512
 /* Hysteresis of MRHOF: the rank must differ more than PARENT_SWITCH_THRESHOLD_DIV
  * in order to switch preferred parent. Default in RFC6719: 192, eq ETX of 1.5.
  * We use a more aggressive setting: 96, eq ETX of 0.75.
  */
 #define PARENT_SWITCH_THRESHOLD 96 /* Eq ETX of 0.75 */
-#else /* !RPL_MRHOF_SQUARED_ETX */
-//#define MAX_LINK_METRIC     512   /* Eq ETX of 2 */
+#elif RPL_MRHOF_SQUARED_ETX == 1
 #define MAX_LINK_METRIC     2048
 #define PARENT_SWITCH_THRESHOLD 160
-#endif /* !RPL_MRHOF_SQUARED_ETX */
+#elif RPL_MRHOF_SQUARED_ETX == 2
+#define MAX_LINK_METRIC     8192
+#define PARENT_SWITCH_THRESHOLD 224
+#endif /* RPL_MRHOF_SQUARED_ETX */
 
 /* Reject parents that have a higher path cost than the following. */
 #define MAX_PATH_COST			 32768   /* Eq path ETX of 256 */
@@ -121,7 +122,11 @@ parent_link_metric(rpl_parent_t *p)
   const struct link_stats *stats = rpl_get_parent_link_stats(p);
   if(stats != NULL) {
 #if RPL_MRHOF_SQUARED_ETX
-    uint32_t squared_etx = ((uint32_t)stats->etx * stats->etx) / LINK_STATS_ETX_DIVISOR;
+    int i;
+    uint32_t squared_etx = stats->etx;
+    for(i = 0; i < RPL_MRHOF_SQUARED_ETX; i++) {
+      squared_etx = ((uint32_t)stats->etx * squared_etx) / LINK_STATS_ETX_DIVISOR;
+    }
     return (uint16_t)MIN(squared_etx, 0xffff);
 #else /* RPL_MRHOF_SQUARED_ETX */
   return stats->etx;
