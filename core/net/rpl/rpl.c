@@ -215,10 +215,8 @@ rpl_remove_routes_by_nexthop(uip_ipaddr_t *nexthop, rpl_dag_t *dag)
 
   while(r != NULL) {
     if(uip_ipaddr_cmp(uip_ds6_route_nexthop(r), nexthop) &&
-       r->state.dag == dag) {
-      uip_ds6_route_rm(r);
-      r = uip_ds6_route_head();
-    } else {
+        r->state.dag == dag) {
+      r->state.lifetime = 0;
       r = uip_ds6_route_next(r);
     }
   }
