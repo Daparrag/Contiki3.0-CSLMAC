@@ -55,7 +55,7 @@
 
 #define START_DELAY (2 * 60 * CLOCK_SECOND)
 //#define START_DELAY (2 * 5 * CLOCK_SECOND)
-#define ASN_STEP (100 * 10)
+#define ASN_STEP (100 * 60)
 
 static struct asn_t next_asn;
 static int count = 0;

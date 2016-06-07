@@ -12,6 +12,8 @@ import numpy as np
 ROOT = 240
 
 topology = {}
+#excludedNodes = {29, 49, 62, 63, 83, 160, 162, 184, 226, 359}
+excludedNodes = {}
 
 # differents levels
 # 1) uptodate and consistent
@@ -159,6 +161,9 @@ def parse(file):
             time /= 1000000. # time from us to s
     
             linesParsedCount += 1
+            
+            if id in excludedNodes:
+                continue
 
             if not id in allNodes:
                 allNodes.append(id)
@@ -179,12 +184,12 @@ def isKnownNS(topo, node):
  
 def isReachableNS(topo, node):
     hops = 0
-    while node in topo[ROOT]["links"].keys():
+    while node != ROOT and node in topo[ROOT]["links"].keys():
         node = topo[ROOT]["links"][node]
         hops += 1
         if hops > 64: # loop!
             return False
-    return True
+    return node == ROOT
 
 def isConsistentNS(topo, node):
     return True # Always consistent assuming reachable
@@ -220,6 +225,77 @@ def processTopologyNS(topology, allNodes):
                                 topo[node]["status"] = "Uptodate"
             if topo[node]["status"] != "Uptodate":
                 print "[%u] Node %u: %s" %(count, node, topo[node]["status"])
+
+def isKnownST(topo, node):
+    return node in topo[ROOT]["routes"].keys()
+
+def routeExistsST(topo, src, dst):
+    hops = 0
+    current = src
+    
+    # go up
+    while current != ROOT and current in topo and "parent" in topo[current]:
+        current = topo[current]["parent"]
+        hops += 1
+        if hops > 64: # loop!
+            return False
+    
+    if current != ROOT:
+        return False
+        
+    # and down
+    while current != dst and current in topo and "routes" in topo[current] and dst in topo[current]["routes"].keys():
+        current = topo[current]["routes"][dst]
+        hops += 1
+        if hops > 64: # loop!
+            return False
+            
+    return current == dst
+
+def isReachableST(topo, node):
+    return routeExistsST(topo, ROOT, node)
+
+def isConsistentST(topo, node):
+    for src in topo.keys():
+        if node == ROOT or "parent" in topo[src]:
+            if not routeExistsST(topo, src, node):
+                return False
+    return True
+
+def isUptodateST(topo, node):
+    hops = 0
+    
+    if not "parent" in topo[node]:
+        return False
+    parent = topo[node]["parent"]
+    
+    for n in topo.keys():
+        if n in topo and "routes" in topo[n] and node in topo[n]["routes"] and topo[n]["routes"][node] == node:
+            # has node as next hop
+            if topo[node]["parent"] != n:
+                return False
+    return True
+
+def processTopologyST(topology, allNodes):
+    for count in topology.keys()[:-1]: # ignore last (incomplete)
+        print "Processing ST %u" %(count)
+        topo = topology[count]
+        for node in topo.keys():
+            if node == ROOT:
+                topo[node]["status"] = "Uptodate"
+            else:
+                topo[node]["status"] = "Unknown"
+                if isKnownST(topo, node):
+                    topo[node]["status"] = "Known"
+                    if isReachableST(topo, node):
+                        topo[node]["status"] = "Reachable"
+                        if isConsistentST(topo, node):
+                            topo[node]["status"] = "Consistent"
+                            if isUptodateST(topo, node):
+                                topo[node]["status"] = "Uptodate"
+            if topo[node]["status"] != "Uptodate":
+                print "[%u] Node %u: %s" %(count, node, topo[node]["status"])
+
 def main():
     if len(sys.argv) < 2:
         dir = '.'
@@ -232,3 +308,4 @@ def main():
 #execfile("../../parseLogsTopo.py")
 #topo, allNodes = parse("log.txt")
 #processTopologyNS(topo, allNodes)
+#processTopologyST(topo, allNodes)
