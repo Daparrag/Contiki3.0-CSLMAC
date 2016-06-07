@@ -904,6 +904,12 @@ send_packet(mac_callback_t sent, void *ptr)
     /* Broadcast packets shall be added to broadcast queue
      * The broadcast address in Contiki is linkaddr_null which is equal
      * to tsch_eb_address */
+#if CONF_SMARTDUP == 0
+    if(++tsch_packet_seqno == 0) {
+      tsch_packet_seqno++;
+    }
+    packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
+#endif
     addr = &tsch_broadcast_address;
   }
 
