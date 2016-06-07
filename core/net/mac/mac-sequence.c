@@ -58,7 +58,7 @@ struct seqno {
 #ifdef NETSTACK_CONF_MAC_SEQNO_MAX_AGE
 #define SEQNO_MAX_AGE NETSTACK_CONF_MAC_SEQNO_MAX_AGE
 #else /* NETSTACK_CONF_MAC_SEQNO_MAX_AGE */
-#define SEQNO_MAX_AGE (10 * CLOCK_SECOND)
+#define SEQNO_MAX_AGE (20 * CLOCK_SECOND)
 #endif /* NETSTACK_CONF_MAC_SEQNO_MAX_AGE */
 
 #ifdef NETSTACK_CONF_MAC_SEQNO_HISTORY
@@ -86,9 +86,9 @@ mac_sequence_is_duplicate(void)
                     &received_seqnos[i].sender)) {
       if(packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO) == received_seqnos[i].seqno) {
 #if SEQNO_MAX_AGE > 0
-        if(now - received_seqnos[0].timestamp <= SEQNO_MAX_AGE) {
+        if(now - received_seqnos[i].timestamp <= SEQNO_MAX_AGE) {
           /* Duplicate packet. */
-          duplicate_age = now - received_seqnos[0].timestamp;
+          duplicate_age = now - received_seqnos[i].timestamp;
           return 1;
         }
 #else /* SEQNO_MAX_AGE > 0 */
