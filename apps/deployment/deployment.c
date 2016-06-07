@@ -625,6 +625,8 @@ static const struct id_mac id_mac_list[] = {
   { 0, { { 0 } } }
 };
 
+static uint8_t seen_map[MAX_NODES];
+
 uint16_t
 nodex_index_map(uint16_t index)
 {
@@ -797,12 +799,29 @@ set_linkaddr_from_id(linkaddr_t *lladdr, uint16_t id)
   }
 #endif
 }
+void
+deployment_set_seen(uint16_t id, int seen) {
+  uint16_t index = get_node_index_from_id(id);
+  if(index != 0xffff) {
+    seen_map[index] = seen;
+  }
+}
+int
+deployment_get_seen(uint16_t id) {
+  uint16_t index = get_node_index_from_id(id);
+  if(index != 0xffff) {
+    return seen_map[index];
+  } else {
+    return 0;
+  }
+}
 /* Initializes global IPv6 and creates DODAG */
 int
 deployment_init(uip_ipaddr_t *ipaddr, uip_ipaddr_t *br_prefix, int root_id)
 {
   rpl_dag_t *dag;
   
+  memset(seen_map, 0, sizeof(seen_map));
   node_id_restore();
   node_index = get_node_index_from_id(node_id);
 

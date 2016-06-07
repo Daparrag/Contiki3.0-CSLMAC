@@ -68,6 +68,9 @@ uint16_t get_random_node_id();
 /* Iterates over all node IDs */
 uint16_t get_next_node_id();
 
+void deployment_set_seen(uint16_t id, int seen);
+int deployment_get_seen(uint16_t id);
+
 /* Our absolute index in the id_mac table */
 extern uint16_t node_index;
 

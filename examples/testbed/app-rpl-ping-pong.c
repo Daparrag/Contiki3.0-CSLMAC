@@ -256,7 +256,8 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
         do {
           target_id = get_next_node_id();
           set_ipaddr_from_id(&target_ipaddr, target_id);
-        } while(target_id == node_id || !can_send_to(&target_ipaddr));
+        } while(target_id == node_id || (!deployment_get_seen(target_id) && !can_send_to(&target_ipaddr)));
+        deployment_set_seen(target_id, 1);
         seqno = (((uint32_t)node_id << 24) & 0xff000000) | (cnt & 0x00ffffff);
         app_send_to(target_id, seqno, 1);
         cnt++;
