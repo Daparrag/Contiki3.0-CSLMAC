@@ -9,6 +9,8 @@ from pylab import *
 from collections import OrderedDict
 import numpy as np
 
+colors = ['#FF9900', '#00A876', '#0a51a7', '#FF5900', 'yellow', 'black']
+
 ROOT = 240
 
 topology = {}
@@ -56,7 +58,7 @@ def parseStatHeader(log):
 def parseStatLine(log):
     res = re.compile('\[(\d+)\] (.*)').match(log)
     if res:
-        count = int(res.group(1))
+        count = int(res.group(1)) + 1
         msg = res.group(2)
         return count, msg
     return None, None
@@ -195,21 +197,16 @@ def isConsistentNS(topo, node):
     return True # Always consistent assuming reachable
 
 def isUptodateNS(topo, node):
-    hops = 0
-    while node in topo[ROOT]["links"].keys():
-        parentInLinks = topo[ROOT]["links"][node]
-        currentParent = topo[node]["parent"]
+    
+    parentInLinks = topo[ROOT]["links"][node]
+    currentParent = topo[node]["parent"]
         
-        node = topo[ROOT]["links"][node]
-        hops += 1
-        if hops > 64: # loop!
-            return False
-    return True
+    return parentInLinks == currentParent
 
 def processTopologyNS(topology, allNodes):
     for count in topology.keys()[:-1]: # ignore last (incomplete)
-        print "Processing NS %u" %(count)
         topo = topology[count]
+        print "Processing NS %u -- %u" %(count, len(topo.keys()))
         for node in topo.keys():
             if node == ROOT:
                 topo[node]["status"] = "Uptodate"
@@ -304,8 +301,38 @@ def main():
     file = os.path.join(dir, "log.txt")
     
     ret = parse(file)
+ 
+def count(topo, i, condition):
+    if not i in topo:
+        return 0
+    return len(filter(lambda x: "status" in topo[i][x] and condition(topo[i][x]["status"]), topo[i]))
+ 
+def plotTopology(topo, allNodes, filename):
+    matplotlib.rcParams.update({'font.size': 22})
+    plt.figure()
+    
+    x = topo.keys()
+    x.insert(0,0)
+        
+    y = array(map(lambda x: count(topo, x, lambda status: status == "Uptodate"), x))
+    y2 = array(map(lambda x: count(topo, x, lambda status: status == "Consistent"), x))
+    y3 = array(map(lambda x: count(topo, x, lambda status: status != "Uptodate" and status != "Consistent"), x))
+
+    plt.xlim(0, x[-2])
+    plt.ylim(0, len(topo[topo.keys()[-1]].keys()))
+    
+    plt.fill_between(x, 0, y, facecolor="#1DACD6", lw=0.01)
+    plt.fill_between(x, y, y+y2, facecolor=colors[1], lw=0.01)
+    plt.fill_between(x, y+y2, y+y2+y3, facecolor=colors[0], lw=0.01)
+    
+    plt.xlabel("Time (min)", fontsize = 28)
+    plt.ylabel("Nodes (#)", fontsize = 28)
+    plt.grid()
+    plt.savefig('plot_topo_%s.pdf'%(filename), format='pdf', bbox_inches='tight', pad_inches=0.05)
         
 #execfile("../../parseLogsTopo.py")
 #topo, allNodes = parse("log.txt")
 #processTopologyNS(topo, allNodes)
 #processTopologyST(topo, allNodes)
+#plotTopology(topo, allNodes, "st")
+#plotTopology(topo, allNodes, "ns")
