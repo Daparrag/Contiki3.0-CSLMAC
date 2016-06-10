@@ -94,15 +94,12 @@ static struct seqno received_seqnos[MAX_SEQNOS];
 /* Let TSCH select a time source with no help of an upper layer.
  * We do so using statistics from incoming EBs */
 #if TSCH_AUTOSELECT_TIME_SOURCE
+int best_neighbor_eb_count;
 struct eb_stat {
-  linkaddr_t addr;
   int rx_count;
   int jp;
 };
-#define MAX_EB_STATS 8
-#define EB_COUNT_REQUIRED 4
-static struct eb_stat eb_stats[MAX_EB_STATS];
-static struct eb_stat *best_eb_stat;
+NBR_TABLE(struct eb_stat, eb_stats);
 #endif /* TSCH_AUTOSELECT_TIME_SOURCE */
 
 /* TSCH channel hopping sequence */
@@ -221,10 +218,10 @@ tsch_reset(void)
   TSCH_CALLBACK_LEAVING_NETWORK();
 #endif
 #if TSCH_AUTOSELECT_TIME_SOURCE
-  best_eb_stat = NULL;
-  memset(&eb_stats, 0, sizeof(eb_stats));
+  best_neighbor_eb_count = 0;
+  nbr_table_register(eb_stats, NULL);
   tsch_set_eb_period(TSCH_EB_PERIOD);
-#endif /* TSCH_AUTOSELECT_TIME_SOURCE */
+#endif
 }
 
 /* TSCH keep-alive functions */
@@ -283,46 +280,37 @@ eb_input(struct input_packet *current_input)
     /* PAN ID check and authentication done at rx time */
 
 #if TSCH_AUTOSELECT_TIME_SOURCE
-    if(!tsch_is_coordinator) { /* Maintain EB received counter for every neighbor */
-      int i;
-      struct eb_stat *stat = NULL;
-      /* Do we already have an entry for this neighbor? */
-      for(i = 0; i < MAX_EB_STATS; ++i) {
-        if(linkaddr_cmp(&eb_stats[i].addr, (linkaddr_t *)&frame.src_addr)) {
-          stat = &eb_stats[i];
-        }
-      }
-      /* Neighbor not found, try to add it */
+    if(!tsch_is_coordinator) {
+      /* Maintain EB received counter for every neighbor */
+      struct eb_stat *stat = (struct eb_stat *)nbr_table_get_from_lladdr(eb_stats, &frame.src_addr);
       if(stat == NULL) {
-        for(i = 0; i < MAX_EB_STATS; ++i) {
-          if(eb_stats[i].rx_count == 0) { /* Empty slot, use it */
-            stat = &eb_stats[i];
-            break;
-          } else if(&eb_stats[i] != best_eb_stat && eb_stats[i].jp > eb_ies.ie_join_priority) {
-            /* Not the current best. Has worse join priority. Replace. */
-            stat = &eb_stats[i];
-            break;
-          }
-        }
+        stat = (struct eb_stat *)nbr_table_add_lladdr(eb_stats, &frame.src_addr);
       }
       if(stat != NULL) {
-        linkaddr_copy(&stat->addr, (linkaddr_t *)&frame.src_addr);
         stat->rx_count++;
-        stat->jp = eb_ies.ie_join_priority;
-        /* This is the first neighbor, use it as time source */
-        if(best_eb_stat == NULL) {
-          best_eb_stat = stat;
+        stat->jp = eb_ies.join_priority;
+        best_neighbor_eb_count = MAX(best_neighbor_eb_count, stat->rx_count);
+      }
+      /* Select best time source */
+      struct eb_stat *best_stat = NULL;
+      stat = nbr_table_head(eb_stats);
+      while(stat != NULL) {
+        /* Is neighbor eligible as a time source? */
+        if(stat->rx_count > best_neighbor_eb_count / 2) {
+          if(best_stat == NULL ||
+             stat->jp < best_stat->jp) {
+            best_stat = stat;
+          }
         }
-        /* We have a better (lower) join priority, and have a high enough EB count, use as time source */
-        if(best_eb_stat->jp > stat->jp && stat->rx_count >= EB_COUNT_REQUIRED) {
-          best_eb_stat = stat;
-        }
-
-        tsch_queue_update_time_source(&best_eb_stat->addr);
-        tsch_join_priority = best_eb_stat->jp + 1;
+        stat = nbr_table_next(eb_stats, stat);
+      }
+      /* Update time source */
+      if(best_stat != NULL) {
+        tsch_queue_update_time_source(nbr_table_get_lladdr(eb_stats, best_stat));
+        tsch_join_priority = best_stat->jp + 1;
       }
     }
-#endif /* TSCH_AUTOSELECT_TIME_SOURCE */
+#endif
 
     struct tsch_neighbor *n = tsch_queue_get_time_source();
     /* Did the EB come from our time source? */
