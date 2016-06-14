@@ -1231,12 +1231,13 @@ packet_sent(void *ptr, int status, int transmissions)
   }
   last_tx_status = status;
 
-
+#if !IN_NESTESTBED
   const linkaddr_t *dest = packetbuf_addr(PACKETBUF_ADDR_RECEIVER);
   LOGP("6LoWPAN: %s sent to %d, st %d %d (%u bytes)",
     linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
     LOG_ID_FROM_LINKADDR(dest), status, transmissions,
     packetbuf_datalen());
+#endif
 }
 /*--------------------------------------------------------------------*/
 /**
@@ -1262,10 +1263,12 @@ send_packet(linkaddr_t *dest)
      a packet transmission. */
   NETSTACK_LLSEC.send(&packet_sent, NULL);
 
+#if !IN_NESTESTBED
   LOGP("6LoWPAN: %s send to %d (%u bytes)",
         linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
             LOG_ID_FROM_LINKADDR(dest),
             packetbuf_datalen());
+#endif
 
   /* If we are sending multiple packets in a row, we need to let the
      watchdog know that we are still alive. */
