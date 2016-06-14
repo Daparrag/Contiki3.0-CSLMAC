@@ -56,8 +56,13 @@
 #define WITH_PONG 0
 #define UDP_PORT 1234
 
+#if IN_IOTLAB
 #define TARGET_NODES (MAX_NODES-50)
-//#define TARGET_NODES 50
+#endif
+
+#if IN_NESTESTBED
+#define TARGET_NODES (MAX_NODES-5)
+#endif
 
 static struct simple_udp_connection unicast_connection;
 
