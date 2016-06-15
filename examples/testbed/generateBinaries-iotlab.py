@@ -17,14 +17,17 @@ SSH_SERVER = "duquenno@grenoble.iot-lab.info"
 BUID_BINARIES = True
 SCHEDULE_JOBS = True
 
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 1})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 1})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 1, 'smartdup': 1})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 1, 'smartdup': 1})
 
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 0})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 1})
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 1})
 
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'rssibased': 0, 'squaredetx': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'rssibased': 0, 'squaredetx': 0})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 0})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 0})
+
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'rssibased': 0, 'squaredetx': 0, 'smartdup': 0})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'rssibased': 0, 'squaredetx': 0, 'smartdup': 0})
 
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'fixloop': 1, 'smartdup': 0, 'squaredetx': 0})
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'fixloop': 1, 'smartdup': 0, 'squaredetx': 0})
