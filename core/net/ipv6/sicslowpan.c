@@ -1231,12 +1231,17 @@ packet_sent(void *ptr, int status, int transmissions)
   }
   last_tx_status = status;
 
-#if !IN_NESTESTBED
   const linkaddr_t *dest = packetbuf_addr(PACKETBUF_ADDR_RECEIVER);
+#if !IN_NESTESTBED
   LOGP("6LoWPAN: %s sent to %d, st %d %d (%u bytes)",
     linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
     LOG_ID_FROM_LINKADDR(dest), status, transmissions,
     packetbuf_datalen());
+#else
+  if(appdataptr_from_packetbuf()) {
+    LOGP("6LP: sent %d %d %d",
+      LOG_ID_FROM_LINKADDR(dest), status, transmissions);
+  }
 #endif
 }
 /*--------------------------------------------------------------------*/
@@ -1549,12 +1554,14 @@ input(void)
 
   LOG_INC_HOPCOUNT_FROM_PACKETBUF();
 
+#if !IN_NESTESTBED
   if(!linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER), &linkaddr_null)) {
     LOGP("6LoWPAN: uc input from %d (%u bytes)",
             LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
             packetbuf_datalen()
       );
   }
+#endif
   /*LOGP("6LoWPAN: %s input from %d (%u bytes)",
           linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER), &linkaddr_null) ? "bc" : "uc",
               LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
