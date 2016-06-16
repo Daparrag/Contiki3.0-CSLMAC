@@ -60,6 +60,24 @@
 #error TSCH: FRAME802154_VERSION must be at least FRAME802154_IEEE802154E_2012
 #endif
 
+#if CONF_SMARTDUP == 0
+/* 802.15.4 duplicate frame detection */
+struct seqno {
+  linkaddr_t sender;
+  uint8_t seqno;
+};
+
+/* Size of the sequence number history */
+#ifdef NETSTACK_CONF_MAC_SEQNO_HISTORY
+#define MAX_SEQNOS NETSTACK_CONF_MAC_SEQNO_HISTORY
+#else /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
+#define MAX_SEQNOS 8
+#endif /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
+
+/* Seqno history */
+static struct seqno received_seqnos[MAX_SEQNOS];
+#endif
+
 #if TSCH_LOG_LEVEL >= 1
 #define DEBUG DEBUG_PRINT
 #else /* TSCH_LOG_LEVEL */
@@ -906,12 +924,12 @@ send_packet(mac_callback_t sent, void *ptr)
     /* Broadcast packets shall be added to broadcast queue
      * The broadcast address in Contiki is linkaddr_null which is equal
      * to tsch_eb_address */
-    //#if CONF_SMARTDUP == 0
-    //if(++tsch_packet_seqno == 0) {
-    //      tsch_packet_seqno++;
-    //}
-    //packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
-    //#endif
+#if CONF_SMARTDUP == 0
+    if(++tsch_packet_seqno == 0) {
+          tsch_packet_seqno++;
+    }
+    packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
+#endif
     addr = &tsch_broadcast_address;
   }
 
@@ -944,7 +962,7 @@ send_packet(mac_callback_t sent, void *ptr)
     } else {
       p->header_len = hdr_len;
 #if !IN_NESTESTBED
-      PRINTF("TSCH: send packet to %u with seqno %u, queue %u-%u, len %u %u\n",
+      LOGP("TSCH: send packet to %u with seqno %u, queue %u-%u, len %u %u",
              TSCH_LOG_ID_FROM_LINKADDR(addr), tsch_packet_seqno,
              tsch_queue_packet_count(addr),
              QUEUEBUF_NUM-queuebuf_numfree(),
@@ -973,6 +991,31 @@ packet_input(void)
 
     /* Seqno of 0xffff means a frame with no seqno */
     if(packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO) != 0xffff) {
+#if CONF_SMARTDUP == 0
+      /* Check for duplicate packet by comparing the sequence number
+         of the incoming packet with the last few ones we saw. */
+      int i;
+      for(i = 0; i < MAX_SEQNOS; ++i) {
+        if(packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO) == received_seqnos[i].seqno &&
+           linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_SENDER),
+                        &received_seqnos[i].sender)) {
+          /* Drop the packet. */
+          LOGP("TSCH:! drop dup ll from %u seqno %u",
+                 TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
+                 packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO));
+          duplicate = 1;
+        }
+      }
+      if(!duplicate) {
+        for(i = MAX_SEQNOS - 1; i > 0; --i) {
+          memcpy(&received_seqnos[i], &received_seqnos[i - 1],
+                 sizeof(struct seqno));
+        }
+        received_seqnos[0].seqno = packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO);
+        linkaddr_copy(&received_seqnos[0].sender,
+                      packetbuf_addr(PACKETBUF_ADDR_SENDER));
+      }
+#else
       /* Check for duplicates */
       duplicate = mac_sequence_is_duplicate();
       if(duplicate) {
@@ -984,6 +1027,7 @@ packet_input(void)
       } else {
         mac_sequence_register_seqno();
       }
+#endif
     }
 
     if(!duplicate) {

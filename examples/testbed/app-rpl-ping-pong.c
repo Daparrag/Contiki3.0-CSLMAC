@@ -58,10 +58,10 @@
 
 #if IN_IOTLAB
 #define TARGET_NODES (MAX_NODES-50)
-#endif
-
-#if IN_NESTESTBED
+#elif IN_NESTESTBED
 #define TARGET_NODES (MAX_NODES-5)
+#else
+#define TARGET_NODES (MAX_NODES-1)
 #endif
 
 static struct simple_udp_connection unicast_connection;

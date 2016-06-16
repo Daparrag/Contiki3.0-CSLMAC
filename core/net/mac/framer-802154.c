@@ -88,9 +88,9 @@ create_frame(int type, int do_create)
     params.fcf.ack_required = 0;
     /* Suppress seqno on broadcast if supported (frame v2 or more) */
     params.fcf.sequence_number_suppression = FRAME802154_VERSION >= FRAME802154_IEEE802154E_2012;
-//#if CONF_SMARTDUP == 0
-    //    params.fcf.sequence_number_suppression = 0;
-    //#endif
+#if CONF_SMARTDUP == 0
+        params.fcf.sequence_number_suppression = 0;
+#endif
   } else {
     params.fcf.ack_required = packetbuf_attr(PACKETBUF_ATTR_MAC_ACK);
     params.fcf.sequence_number_suppression = FRAME802154_SUPPR_SEQNO;

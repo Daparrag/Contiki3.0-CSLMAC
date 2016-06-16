@@ -11,39 +11,27 @@ TARGET = "iotlab-m3"
 TARGET_BIN = "iotlab-m3"
 
 DURATION = 60
-ITERATIONS = 3
+ITERATIONS = 1
 SSH_SERVER = "duquenno@grenoble.iot-lab.info"
 
 BUID_BINARIES = True
-SCHEDULE_JOBS = True
+SCHEDULE_JOBS = False
 
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 1, 'smartdup': 1})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 1, 'smartdup': 1})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 1, 'smartdup': 1}) #7
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 1, 'smartdup': 1}) #4
 
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 1})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 1})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 1}) #16
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 1}) #9
 
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 0})
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'squaredetx': 0, 'smartdup': 0})
 
 configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'rssibased': 0, 'squaredetx': 0, 'smartdup': 0})
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'rssibased': 0, 'squaredetx': 0, 'smartdup': 0})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'rssibased': 0, 'squaredetx': 0, 'smartdup': 0}) #2
 
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'fixloop': 1, 'smartdup': 0, 'squaredetx': 0})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'fixloop': 1, 'smartdup': 0, 'squaredetx': 0})
-
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 1, 'fixloop': 0, 'smartdup': 0, 'squaredetx': 0})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 1, 'fixloop': 0, 'smartdup': 0, 'squaredetx': 0})
-
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 1, 'rssibased': 0, 'fixloop': 0, 'smartdup': 0, 'squaredetx': 0})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 1, 'rssibased': 0, 'fixloop': 0, 'smartdup': 0, 'squaredetx': 0})
-
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'rssibased': 0, 'fixloop': 0, 'smartdup': 0, 'squaredetx': 0})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'rssibased': 0, 'fixloop': 0, 'smartdup': 0, 'squaredetx': 0})
-
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx':  8})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 16})
-#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 32})
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx':  8}) #1
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 16}) #1
+configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 32}) #1
 
 def getFileName(config):
     name = "do4s"

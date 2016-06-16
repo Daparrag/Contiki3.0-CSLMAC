@@ -133,7 +133,11 @@ PROCESS_THREAD(log_process, ev, data)
 {
   static struct etimer periodic;
   PROCESS_BEGIN();
+#if !IN_NESTESTBED
   etimer_set(&periodic, 4 * 60 * CLOCK_SECOND);
+#else
+  etimer_set(&periodic, 60 * 60 * CLOCK_SECOND);
+#endif
   simple_energest_init();
 
   while(1) {
