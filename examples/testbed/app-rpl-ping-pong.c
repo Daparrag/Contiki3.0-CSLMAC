@@ -51,8 +51,14 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
+#if IN_IOTLAB_LIL
+#define START_DELAY (20 * 60 * CLOCK_SECOND)
+#define SEND_INTERVAL   (CLOCK_SECOND/4)
+#else
 #define START_DELAY (5 * 60 * CLOCK_SECOND)
 #define SEND_INTERVAL   (CLOCK_SECOND/4)
+#endif
+
 #define WITH_PONG 0
 #define UDP_PORT 1234
 

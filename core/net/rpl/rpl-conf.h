@@ -297,6 +297,12 @@
 #define RPL_PROBING_INTERVAL (120 * CLOCK_SECOND)
 #endif
 
+#ifdef RPL_CONF_URGENT_PROBING_INTERVAL
+#define RPL_URGENT_PROBING_INTERVAL RPL_CONF_URGENT_PROBING_INTERVAL
+#else
+#define RPL_URGENT_PROBING_INTERVAL (10 * CLOCK_SECOND)
+#endif
+
 /*
  * Function used to select the next parent to be probed.
  */
