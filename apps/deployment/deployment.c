@@ -1238,6 +1238,12 @@ deployment_init(uip_ipaddr_t *ipaddr, uip_ipaddr_t *br_prefix, int root_id)
     return 0;
   }
   
+#if IN_IOTLAB_LIL
+  if(node_id != root_id && node_id % 3 != 0) {
+    rpl_set_mode(RPL_MODE_LEAF);
+  }
+#endif
+
   if(!br_prefix) {
     uip_ip6addr(&prefix, 0xfd00, 0, 0, 0, 0, 0, 0, 0);
   } else {

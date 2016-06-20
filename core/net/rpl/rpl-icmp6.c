@@ -488,14 +488,14 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
   uip_ipaddr_t addr;
 #endif /* !RPL_LEAF_ONLY */
 
-#if RPL_LEAF_ONLY
-  /* In leaf mode, we only send DIO messages as unicasts in response to
-     unicast DIS messages. */
-  if(uc_addr == NULL) {
-    PRINTF("RPL: LEAF ONLY have multicast addr: skip dio_output\n");
-    return;
+  if(rpl_get_mode() == RPL_MODE_LEAF) {
+    /* In leaf mode, we only send DIO messages as unicasts in response to
+       unicast DIS messages. */
+    if(uc_addr == NULL) {
+      PRINTF("RPL: LEAF ONLY have multicast addr: skip dio_output\n");
+      return;
+    }
   }
-#endif /* RPL_LEAF_ONLY */
 
   /* DAG Information Object */
   pos = 0;
@@ -505,12 +505,12 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
   buffer[pos++] = dag->version;
   is_root = (dag->rank == ROOT_RANK(instance));
 
-#if RPL_LEAF_ONLY
-  PRINTF("RPL: LEAF ONLY DIO rank set to INFINITE_RANK\n");
-  set16(buffer, pos, INFINITE_RANK);
-#else /* RPL_LEAF_ONLY */
-  set16(buffer, pos, dag->rank);
-#endif /* RPL_LEAF_ONLY */
+  if(rpl_get_mode() == RPL_MODE_LEAF) {
+    PRINTF("RPL: LEAF ONLY DIO rank set to INFINITE_RANK\n");
+    set16(buffer, pos, INFINITE_RANK);
+  } else {
+    set16(buffer, pos, dag->rank);
+  }
   pos += 2;
 
   buffer[pos] = 0;

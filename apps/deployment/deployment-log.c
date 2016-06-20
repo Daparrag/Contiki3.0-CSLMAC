@@ -133,7 +133,7 @@ PROCESS_THREAD(log_process, ev, data)
 {
   static struct etimer periodic;
   PROCESS_BEGIN();
-#if !IN_NESTESTBED
+#if !MIN_LOG
   etimer_set(&periodic, 4 * 60 * CLOCK_SECOND);
 #else
   etimer_set(&periodic, 60 * 60 * CLOCK_SECOND);

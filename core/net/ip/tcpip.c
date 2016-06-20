@@ -564,7 +564,7 @@ tcpip_ipv6_output(void)
     /* Look for a RPL Source Route */
     if(rpl_srh_get_next_hop(&ipaddr)) {
       nexthop = &ipaddr;
-#if !IN_NESTESTBED
+#if !MIN_LOG
       LOGU("Tcpip: fw to %d (srh) (%u bytes)", LOG_ID_FROM_IPADDR(&ipaddr), uip_len);
 #else
       LOGU("Tcpip: fw %d", LOG_ID_FROM_IPADDR(&ipaddr));

@@ -54,6 +54,7 @@
 #include "net/mac/tsch/tsch-packet.h"
 #include "net/mac/tsch/tsch-security.h"
 #include "net/mac/mac-sequence.h"
+#include "net/rpl/rpl.h"
 #include "lib/random.h"
 
 #if FRAME802154_VERSION < FRAME802154_IEEE802154E_2012
@@ -784,7 +785,7 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
           if(!(p = tsch_queue_add_packet(&tsch_eb_address, NULL, NULL))) {
             PRINTF("TSCH:! could not enqueue EB packet\n");
           } else {
-#if !IN_NESTESTBED
+#if !MIN_LOG
             PRINTF("TSCH: enqueue EB packet %u %u\n", eb_len, hdr_len);
 #endif
             p->tsch_sync_ie_offset = tsch_sync_ie_offset;
@@ -961,7 +962,7 @@ send_packet(mac_callback_t sent, void *ptr)
       ret = MAC_TX_ERR;
     } else {
       p->header_len = hdr_len;
-#if !IN_NESTESTBED
+#if !MIN_LOG
       LOGP("TSCH: send packet to %u with seqno %u, queue %u-%u, len %u %u",
              TSCH_LOG_ID_FROM_LINKADDR(addr), tsch_packet_seqno,
              tsch_queue_packet_count(addr),
@@ -1047,7 +1048,9 @@ turn_on(void)
     /* Process tx/rx callback and log messages whenever polled */
     process_start(&tsch_pending_events_process, NULL);
     /* periodically send TSCH EBs */
-    process_start(&tsch_send_eb_process, NULL);
+    if(rpl_get_mode() != RPL_MODE_LEAF) {
+      process_start(&tsch_send_eb_process, NULL);
+    }
     /* try to associate to a network or start one if setup as coordinator */
     process_start(&tsch_process, NULL);
     PRINTF("TSCH: starting as %s\n", tsch_is_coordinator ? "coordinator" : "node");

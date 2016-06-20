@@ -1232,7 +1232,7 @@ packet_sent(void *ptr, int status, int transmissions)
   last_tx_status = status;
 
   const linkaddr_t *dest = packetbuf_addr(PACKETBUF_ADDR_RECEIVER);
-#if !IN_NESTESTBED
+#if !MIN_LOG
   LOGP("6LoWPAN: %s sent to %d, st %d %d (%u bytes)",
     linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
     LOG_ID_FROM_LINKADDR(dest), status, transmissions,
@@ -1268,7 +1268,7 @@ send_packet(linkaddr_t *dest)
      a packet transmission. */
   NETSTACK_LLSEC.send(&packet_sent, NULL);
 
-#if !IN_NESTESTBED
+#if !MIN_LOG
   LOGP("6LoWPAN: %s send to %d (%u bytes)",
         linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
             LOG_ID_FROM_LINKADDR(dest),
@@ -1554,7 +1554,7 @@ input(void)
 
   LOG_INC_HOPCOUNT_FROM_PACKETBUF();
 
-#if !IN_NESTESTBED
+#if !MIN_LOG
   if(!linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER), &linkaddr_null)) {
     LOGP("6LoWPAN: uc input from %d (%u bytes)",
             LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER)),
