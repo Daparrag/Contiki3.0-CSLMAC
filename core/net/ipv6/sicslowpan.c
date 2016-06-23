@@ -1311,8 +1311,11 @@ output(const uip_lladdr_t *localdest)
   packetbuf_clear();
   packetbuf_ptr = packetbuf_dataptr();
 
-  packetbuf_set_attr(PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS,
+  if(appdataptr_from_uip() != 0) {
+    /* Set retries explicitly only for our application traffic */
+    packetbuf_set_attr(PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS,
                      SICSLOWPAN_MAX_MAC_TRANSMISSIONS);
+  }
 
   if(callback) {
     /* call the attribution when the callback comes, but set attributes

@@ -117,6 +117,7 @@ struct tsch_packet {
   mac_callback_t sent; /* callback for this packet */
   void *ptr; /* MAC callback parameter */
   uint8_t transmissions; /* #transmissions performed for this packet */
+  uint8_t max_retries; /* max number of retires for this packet */
   uint8_t ret; /* status -- MAC return code */
   uint8_t header_len; /* length of header and header IEs (needed for link-layer security) */
   uint8_t tsch_sync_ie_offset; /* Offset within the frame used for quick update of EB ASN and join priority */

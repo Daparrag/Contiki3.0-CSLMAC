@@ -364,7 +364,7 @@ update_neighbor_state(struct tsch_neighbor *n, struct tsch_packet *p,
     }
   } else {
     /* Failed transmission */
-    if(p->transmissions >= TSCH_MAC_MAX_FRAME_RETRIES + 1) {
+    if(p->transmissions >= p->max_retries + 1) {
       /* Drop packet */
       tsch_queue_remove_packet_from_queue(n);
       in_queue = 0;

@@ -250,6 +250,11 @@ tsch_queue_add_packet(const linkaddr_t *addr, mac_callback_t sent, void *ptr)
             p->ptr = ptr;
             p->ret = MAC_TX_DEFERRED;
             p->transmissions = 0;
+            p->max_retries = queuebuf_attr(p->qb, PACKETBUF_ATTR_MAX_MAC_TRANSMISSIONS);
+            if(p->max_retries == 0) {
+              p->max_retries = TSCH_MAC_MAX_FRAME_RETRIES;
+            }
+            LOGP("max retries: %u", p->max_retries);
             /* Add to ringbuf (actual add committed through atomic operation) */
             n->tx_array[put_index] = p;
             ringbufindex_put(&n->tx_ringbuf);
