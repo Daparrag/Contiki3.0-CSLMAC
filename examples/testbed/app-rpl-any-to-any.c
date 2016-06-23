@@ -29,10 +29,7 @@
  */
 /**
  * \file
- *         Example file using RPL for a any-to-any routing: the root and all
- *         nodes with an even node-id send a ping periodically to another node
- *         (which also must be root or have even node-id). Upon receiving a ping,
- *         nodes answer with a poing.
+ *         Example file using RPL for a data collection.
  *         Can be deployed in the Indriya or Twist testbeds.
  *
  * \author Simon Duquennoy <simonduq@sics.se>
@@ -41,44 +38,124 @@
 #include "contiki-conf.h"
 #include "net/netstack.h"
 #include "net/mac/tsch/tsch-schedule.h"
-#include "net/ip/uip-debug.h"
+#include "net/rpl/rpl-private.h"
+#include "net/rpl/rpl-ns.h"
+#include "net/mac/tsch/tsch-schedule.h"
 #include "lib/random.h"
+#include "net/mac/tsch/tsch-rpl.h"
 #include "deployment.h"
 #include "simple-udp.h"
 #include <stdio.h>
+//#include "orchestra.h"
 
-#define SEND_INTERVAL   (60 * CLOCK_SECOND)
+#define DEBUG DEBUG_PRINT
+#include "net/ip/uip-debug.h"
+
+#if IN_IOTLAB_LIL
+#define START_DELAY (30 * 60 * CLOCK_SECOND)
+#define SEND_INTERVAL   (CLOCK_SECOND)
+#elif IN_NESTESTBED
+#define START_DELAY (30 * 60 * CLOCK_SECOND)
+#define SEND_INTERVAL   (CLOCK_SECOND/4)
+#elif IN_COOJA
+#define START_DELAY (60 * CLOCK_SECOND)
+#define SEND_INTERVAL   (CLOCK_SECOND)
+#else
+#define START_DELAY (5 * 60 * CLOCK_SECOND)
+#define SEND_INTERVAL   (CLOCK_SECOND/4)
+#endif
+
+#define WITH_PONG 0
 #define UDP_PORT 1234
 
-static struct simple_udp_connection unicast_connection;
-static uint16_t current_cnt = 0;
-
-static const uint16_t any_to_any_list[] = {
-#if IN_INDRIYA
-  20, 12, 28, 50, 56, 72, 92, 94, 112,
-#elif IN_COOJA
-  1, 2, 4, 6, 8,
+#if IN_IOTLAB || IN_IOTLAB_LIL || IN_IOTLAB_STR || IN_IOTLAB_PAR
+#define TARGET_NODES (MAX_NODES-50)
+#elif IN_NESTESTBED
+#define TARGET_NODES (MAX_NODES-5)
+#else
+#define TARGET_NODES (MAX_NODES-1)
 #endif
-  0
-};
 
-static int
-is_id_in_any_to_any(uint16_t id)
-{
-  const uint16_t *curr = any_to_any_list;
-  while(*curr != 0) {
-    if(*curr == id) {
-      return 1;
-    }
-    curr++;
-  }
-  return 0;
-}
+static struct simple_udp_connection unicast_connection;
+
 /*---------------------------------------------------------------------------*/
 PROCESS(unicast_sender_process, "Any-to-any Application");
 AUTOSTART_PROCESSES(&unicast_sender_process);
+
 /*---------------------------------------------------------------------------*/
-void app_send_to(uint16_t id, int ping, uint32_t seqno);
+static void
+print_network_status(void)
+{
+  int i;
+  uint8_t state;
+  uip_ds6_defrt_t *default_route;
+
+  PRINTF("--- Network status ---\n");
+
+  /* Our IPv6 addresses */
+  PRINTF("NetStatus: Server IPv6 addresses:\n");
+  for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
+    state = uip_ds6_if.addr_list[i].state;
+    if(uip_ds6_if.addr_list[i].isused &&
+       (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
+      PRINTF("NetStatus: ");
+      PRINT6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
+      PRINTF("\n");
+    }
+  }
+
+  /* Our default route */
+  PRINTF("- Default route:\n");
+  default_route = uip_ds6_defrt_lookup(uip_ds6_defrt_choose());
+  if(default_route != NULL) {
+    PRINTF("NetStatus: ");
+    PRINT6ADDR(&default_route->ipaddr);;
+    PRINTF(" (lifetime: %lu seconds)\n", (unsigned long)default_route->lifetime.interval);
+  } else {
+    PRINTF("\n");
+  }
+
+#if RPL_WITH_STORING
+  /* Our routing entries */
+  uip_ds6_route_t *route;
+  PRINTF("- Routing entries (%u in total):\n", uip_ds6_route_num_routes());
+  route = uip_ds6_route_head();
+  while(route != NULL) {
+    PRINTF("NetStatus: ");
+    PRINT6ADDR(&route->ipaddr);
+    PRINTF(" via ");
+    PRINT6ADDR(uip_ds6_route_nexthop(route));
+    PRINTF(" (lifetime: %lu seconds)\n", (unsigned long)route->state.lifetime);
+    route = uip_ds6_route_next(route);
+  }
+#endif
+
+#if RPL_WITH_NON_STORING
+  /* Our routing links */
+  rpl_ns_node_t *link;
+  PRINTF("- Routing links (%u in total):\n", rpl_ns_num_nodes());
+  link = rpl_ns_node_head();
+  while(link != NULL) {
+    if(link->parent != NULL) {
+      uip_ipaddr_t child_ipaddr;
+      uip_ipaddr_t parent_ipaddr;
+      rpl_ns_get_node_global_addr(&child_ipaddr, link);
+      rpl_ns_get_node_global_addr(&parent_ipaddr, link->parent);
+      PRINTF("NetStatus: ");
+      PRINT6ADDR(&child_ipaddr);
+      PRINTF(" to ");
+      PRINT6ADDR(&parent_ipaddr);
+      PRINTF(" (lifetime: %lu seconds)\n", (unsigned long)link->lifetime);
+    }
+    link = rpl_ns_node_next(link);
+  }
+#endif
+
+  PRINTF("----------------------\n");
+}
+
+/*---------------------------------------------------------------------------*/
+int app_send_to(uint16_t id, uint32_t seqno, int ping);
 static void
 receiver(struct simple_udp_connection *c,
          const uip_ipaddr_t *sender_addr,
@@ -89,85 +166,142 @@ receiver(struct simple_udp_connection *c,
          uint16_t datalen)
 {
   struct app_data data;
-  appdata_copy(&data, (void*)dataptr);
+  appdata_copy((void *)&data, (void *)dataptr);
   if(data.ping) {
+#if WITH_PONG
+    uint32_t seqno = (UIP_HTONL(data.seqno) & 0x00ffffff) | (((uint32_t)node_id << 24) & 0xff000000);
     LOGA((struct app_data *)dataptr, "App: received ping");
+    app_send_to(UIP_HTONS(data.src), seqno, 0);
+#else
+    LOGA((struct app_data *)dataptr, "App: received");
+#endif
   } else {
     LOGA((struct app_data *)dataptr, "App: received pong");
-  } if(data.ping) {
-    app_send_to(data.src, 0, data.seqno | 0x8000l);
   }
 }
 /*---------------------------------------------------------------------------*/
-void
-app_send_to(uint16_t id, int ping, uint32_t seqno)
+int
+can_send_to(uip_ipaddr_t *ipaddr) {
+  return uip_ds6_is_addr_onlink(ipaddr)
+      || uip_ds6_route_lookup(ipaddr)
+#if RPL_WITH_NON_STORING
+      || rpl_ns_is_node_reachable(default_instance->current_dag, ipaddr)
+#endif
+;
+}
+/*---------------------------------------------------------------------------*/
+int
+app_send_to(uint16_t id, uint32_t seqno, int ping)
 {
   struct app_data data;
   uip_ipaddr_t dest_ipaddr;
 
-  data.magic = LOG_MAGIC;
-  data.seqno = seqno;
-  data.src = node_id;
-  data.dest = id;
+  data.magic = UIP_HTONL(LOG_MAGIC);
+  data.seqno = UIP_HTONL(seqno);
+  data.src = UIP_HTONS(node_id);
+  data.dest = UIP_HTONS(id);
   data.hop = 0;
   data.ping = ping;
 
-  if(ping) {
-    LOGA(&data, "App: sending ping");
-  } else {
-    LOGA(&data, "App: sending pong");
-    /* TODO */
-  }
-  /* rpl_set_curr_seqno(data.seqno); */
   set_ipaddr_from_id(&dest_ipaddr, id);
 
-  simple_udp_sendto(&unicast_connection, &data, sizeof(data), &dest_ipaddr);
+  if(default_instance != NULL) {
+#if WITH_PONG
+    if(ping) {
+      LOGA(&data, "App: sending ping");
+    } else {
+      LOGA(&data, "App: sending pong");
+    }
+#else
+    LOGA(&data, "App: sending");
+#endif
+    simple_udp_sendto(&unicast_connection, &data, sizeof(data), &dest_ipaddr);
+    return 1;
+  } else {
+    data.seqno = UIP_HTONL(seqno);
+    LOGA(&data, "App: could not send");
+    return 0;
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(unicast_sender_process, ev, data)
 {
   static struct etimer periodic_timer;
-  static struct etimer send_timer;
   uip_ipaddr_t global_ipaddr;
+  static uint32_t cnt = 0;
+  static uint32_t seqno;
 
   PROCESS_BEGIN();
 
   if(deployment_init(&global_ipaddr, NULL, ROOT_ID)) {
-    printf("App: %u starting\n", node_id);
+    //LOG("App: %u start\n", node_id);
   } else {
-    printf("App: %u *not* starting\n", node_id);
-    PROCESS_EXIT();
+    etimer_set(&periodic_timer, 60 * CLOCK_SECOND);
+    while(1) {
+      printf("Info: Not running. My MAC address: ");
+      net_debug_lladdr_print((const uip_lladdr_t *)&linkaddr_node_addr);
+      printf("\n");
+      PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+      etimer_reset(&periodic_timer);
+    }
   }
 
   simple_udp_register(&unicast_connection, UDP_PORT,
                       NULL, UDP_PORT, receiver);
 
+#if WITH_TSCH
+#if WITH_ORCHESTRA
+  orchestra_init();
+#else
   tsch_schedule_create_minimal();
+#endif
+#endif
 
-  if(is_id_in_any_to_any(get_node_id())) {
-    etimer_set(&periodic_timer, 2 * 60 * CLOCK_SECOND);
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+  if((node_id % 3) == 0) {
+    unsigned short r, r2;
+    etimer_set(&periodic_timer, START_DELAY);
+    PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+
+    r = ((node_id * random_rand() >> 4) % MAX_NODES);
+    r2 = r;
+
+    while(r2-- != 0) {
+      get_next_node_id();
+    }
+
+    printf("Init %u: %u\n", r, get_next_node_id());
+
     etimer_set(&periodic_timer, SEND_INTERVAL);
-
     while(1) {
-      uint16_t target_id;
-
-      etimer_set(&send_timer, random_rand() % (SEND_INTERVAL));
-      PROCESS_WAIT_UNTIL(etimer_expired(&send_timer));
-
-      do {
-        target_id = get_node_id_from_index((random_rand() >> 8) % get_n_nodes());
-      } while(target_id == node_id || !is_id_in_any_to_any(target_id));
-
-      if(target_id < node_id || target_id == ROOT_ID) {
-        /* After finding an addressable node, send only if destination has lower ID
-         * otherwise, next attempt will be at the next period */
-        app_send_to(target_id, 1, ((uint32_t)node_id << 16) + current_cnt);
-        current_cnt++;
+      if(default_instance != NULL) {
+        uint16_t target_id;
+        uip_ipaddr_t target_ipaddr;
+        do {
+          target_id = get_next_node_id();
+          set_ipaddr_from_id(&target_ipaddr, target_id);
+        } while(target_id == node_id);
+        deployment_set_seen(target_id, 1);
+        seqno = (((uint32_t)node_id << 24) & 0xff000000) | (cnt & 0x00ffffff);
+        app_send_to(target_id, seqno, 1);
+        cnt++;
+        if((cnt % 60) == 0) {
+          print_network_status();
+        }
+      } else {
+        LOG("App: no DODAG\n");
+        print_network_status();
       }
 
       PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
       etimer_reset(&periodic_timer);
+    }
+  } else {
+    etimer_set(&periodic_timer, 60 * CLOCK_SECOND);
+    while(1) {
+      LOG("App: running\n");
+      PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+      etimer_reset(&periodic_timer);
+      print_network_status();
     }
   }
 
