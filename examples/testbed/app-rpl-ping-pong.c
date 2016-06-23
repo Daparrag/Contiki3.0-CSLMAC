@@ -52,8 +52,11 @@
 #include "net/ip/uip-debug.h"
 
 #if IN_IOTLAB_LIL
-#define START_DELAY (15 * 60 * CLOCK_SECOND)
+#define START_DELAY (30 * 60 * CLOCK_SECOND)
 #define SEND_INTERVAL   (CLOCK_SECOND)
+#elif IN_NESTESTBED
+#define START_DELAY (30 * 60 * CLOCK_SECOND)
+#define SEND_INTERVAL   (CLOCK_SECOND/4)
 #else
 #define START_DELAY (5 * 60 * CLOCK_SECOND)
 #define SEND_INTERVAL   (CLOCK_SECOND/4)
