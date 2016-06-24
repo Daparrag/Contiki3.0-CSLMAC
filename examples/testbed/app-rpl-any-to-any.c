@@ -51,30 +51,16 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
-#if IN_IOTLAB_LIL
-#define START_DELAY (30 * 60 * CLOCK_SECOND)
-#define SEND_INTERVAL   (CLOCK_SECOND)
-#elif IN_NESTESTBED
-#define START_DELAY (30 * 60 * CLOCK_SECOND)
-#define SEND_INTERVAL   (CLOCK_SECOND/4)
-#elif IN_COOJA
+#if IN_COOJA
 #define START_DELAY (60 * CLOCK_SECOND)
 #define SEND_INTERVAL   (CLOCK_SECOND)
 #else
 #define START_DELAY (5 * 60 * CLOCK_SECOND)
-#define SEND_INTERVAL   (CLOCK_SECOND/4)
+#define SEND_INTERVAL   (60 * CLOCK_SECOND)
 #endif
 
 #define WITH_PONG 0
 #define UDP_PORT 1234
-
-#if IN_IOTLAB || IN_IOTLAB_LIL || IN_IOTLAB_STR || IN_IOTLAB_PAR
-#define TARGET_NODES (MAX_NODES-50)
-#elif IN_NESTESTBED
-#define TARGET_NODES (MAX_NODES-5)
-#else
-#define TARGET_NODES (MAX_NODES-1)
-#endif
 
 static struct simple_udp_connection unicast_connection;
 
@@ -257,7 +243,7 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
 #endif
 #endif
 
-  if((node_id % 3) == 0) {
+  if((node_id % 5) == 0) {
     unsigned short r, r2;
     etimer_set(&periodic_timer, START_DELAY);
     PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
