@@ -157,9 +157,9 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
    );
 
   if((down && !sender_closer) || (!down && sender_closer)) {
-    PRINTF("RPL: Loop detected - senderrank: %d my-rank: %d sender_closer: %d\n",
+    LOGU("RPL: Loop detected - senderrank: %d my-rank: %d sender_closer: %d down: %d",
 	   sender_rank, instance->current_dag->rank,
-	   sender_closer);
+	   sender_closer, down);
 #if RPL_CONF_FIXLOOP
     /* Attempt to repair the loop by sending a unicast DIO back to the sender
      * so that it gets a fresh update of our rank. */
@@ -171,12 +171,12 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
     if(UIP_EXT_HDR_OPT_RPL_BUF->flags & RPL_HDR_OPT_RANK_ERR) {
       RPL_STAT(rpl_stats.loop_errors++);
       PRINTF("RPL: Rank error signalled in RPL option!\n");
-      LOGU("RPL:! Rank error signalled in RPL option");
+      LOGU("RPL:! Rank error signalled in RPL option %u %u", down, sender_closer);
       /* Packet must be dropped and dio trickle timer reset, see RFC6550 - 11.2.2.2 */
       rpl_reset_dio_timer(instance, "Loop detected and rank error signaled in RPI");
       return 1;
     }
-    PRINTF("RPL: Single error tolerated\n");
+    LOGU("RPL: Single error tolerated %u %u", down, sender_closer);
     RPL_STAT(rpl_stats.loop_warnings++);
     UIP_EXT_HDR_OPT_RPL_BUF->flags |= RPL_HDR_OPT_RANK_ERR;
     return 0;
