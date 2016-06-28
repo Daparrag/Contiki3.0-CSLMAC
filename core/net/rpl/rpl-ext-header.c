@@ -389,7 +389,7 @@ insert_srh_header(void)
 
   if(node == root_node) {
     PRINTF("RPL: SRH no need to insert SRH\n");
-    return 0;
+    return 1;
   }
 
   while(node != NULL && node != root_node) {
