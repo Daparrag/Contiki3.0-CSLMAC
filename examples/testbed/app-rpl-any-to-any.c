@@ -55,7 +55,7 @@
 #define START_DELAY (60 * CLOCK_SECOND)
 #define SEND_INTERVAL   (CLOCK_SECOND)
 #else
-#define START_DELAY (5 * 60 * CLOCK_SECOND)
+#define START_DELAY (15 * 60 * CLOCK_SECOND)
 #define SEND_INTERVAL   (60 * CLOCK_SECOND)
 #endif
 
@@ -243,7 +243,7 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
 #endif
 #endif
 
-  if((node_id % 5) == 0) {
+  if(node_id != ROOT_ID && ((node_id % 10) == 0)) {
     unsigned short r, r2;
     etimer_set(&periodic_timer, START_DELAY);
     PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
@@ -266,13 +266,14 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
           target_id = get_next_node_id();
           set_ipaddr_from_id(&target_ipaddr, target_id);
         } while(target_id == node_id);
-        deployment_set_seen(target_id, 1);
+
+        /* Collect */
+        //target_id = ROOT_ID;
+
         seqno = (((uint32_t)node_id << 24) & 0xff000000) | (cnt & 0x00ffffff);
         app_send_to(target_id, seqno, 1);
         cnt++;
-        if((cnt % 60) == 0) {
-          print_network_status();
-        }
+        print_network_status();
       } else {
         LOG("App: no DODAG\n");
         print_network_status();

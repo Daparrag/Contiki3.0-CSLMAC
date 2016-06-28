@@ -174,7 +174,9 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
       LOGU("RPL:! Rank error signalled in RPL option %u %u", down, sender_closer);
       /* Packet must be dropped and dio trickle timer reset, see RFC6550 - 11.2.2.2 */
       rpl_reset_dio_timer(instance, "Loop detected and rank error signaled in RPI");
+#if !RPL_NO_LOOP_DROP
       return 1;
+#endif
     }
     LOGU("RPL: Single error tolerated %u %u", down, sender_closer);
     RPL_STAT(rpl_stats.loop_warnings++);

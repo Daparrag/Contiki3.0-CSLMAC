@@ -38,6 +38,7 @@
 
 //#define WITH_POLL_RPL_PROCESS 1
 //#define MIN_LOG 1
+//#define RPL_NO_LOOP_DROP 1
 
 #if CONFIG == CONFIG_TSCH
 
