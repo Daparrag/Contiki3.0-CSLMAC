@@ -226,7 +226,7 @@ start_uip6(void)
   if(!UIP_CONF_IPV6_RPL) {
     uip_ipaddr_t ipaddr;
     int i;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
+    uip_ip6addr(&ipaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
     uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_TENTATIVE);
     PRINTF("Tentative global IPv6 address ");
@@ -369,10 +369,10 @@ main(void)
 
   PRINTF("%s %s %s\n", NETSTACK_LLSEC.name, NETSTACK_MAC.name, NETSTACK_RDC.name);
 
-#if !NETSTACK_CONF_WITH_IPV4 && !NETSTACK_CONF_WITH_IPV6
+#ifndef UIP_FALLBACK_INTERFACE
   uart0_set_input(serial_line_input_byte);
   serial_line_init();
-#endif
+#endif /* UIP_FALLBACK_INTERFACE */
 
 #if TIMESYNCH_CONF_ENABLED
   timesynch_init();
@@ -409,7 +409,6 @@ main(void)
 #endif /* NETSTACK_CONF_WITH_IPV4 */
 
   watchdog_start();
-  NETSTACK_LLSEC.init();
 
 #if NETSTACK_CONF_WITH_IPV6
   start_uip6();
@@ -463,7 +462,7 @@ main_loop(void)
 #endif /* DCOSYNCH_CONF_ENABLED */
 
     /* flush standard output before sleeping */
-    uart_driver_flush(E_AHI_UART_0);
+    uart_driver_flush(E_AHI_UART_0, TRUE, FALSE);
 
     /* calculate the time to the next etimer and rtimer */
     time_to_etimer = clock_arch_time_to_etimer();

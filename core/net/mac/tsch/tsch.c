@@ -64,7 +64,7 @@
 #else /* TSCH_LOG_LEVEL */
 #define DEBUG DEBUG_NONE
 #endif /* TSCH_LOG_LEVEL */
-#include "net/ip/uip-debug.h"
+#include "net/net-debug.h"
 
 /* Use to collect link statistics even on Keep-Alive, even though they were
  * not sent from an upper layer and don't have a valid packet_sent callback */
@@ -141,7 +141,7 @@ int tsch_is_coordinator = 0;
 /* Are we associated to a TSCH network? */
 int tsch_is_associated = 0;
 /* Is the PAN running link-layer security? */
-int tsch_is_pan_secured = TSCH_SECURITY_ENABLED;
+int tsch_is_pan_secured = LLSEC802154_ENABLED;
 /* The current Absolute Slot Number (ASN) */
 struct asn_t current_asn;
 /* Device rank or join priority:
@@ -177,7 +177,7 @@ tsch_set_coordinator(int enable)
 void
 tsch_set_pan_secured(int enable)
 {
-  tsch_is_pan_secured = TSCH_SECURITY_ENABLED && enable;
+  tsch_is_pan_secured = LLSEC802154_ENABLED && enable;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -199,8 +199,8 @@ tsch_reset(void)
   frame802154_set_pan_id(0xffff);
   /* First make sure pending packet callbacks are sent etc */
   process_post_synch(&tsch_pending_events_process, PROCESS_EVENT_POLL, NULL);
-  /* Empty all neighbor queues */
-  /* tsch_queue_flush_all(); */
+  /* Reset neighbor queues */
+  tsch_queue_reset();
   /* Remove unused neighbors */
   tsch_queue_free_unused_neighbors();
   tsch_queue_update_time_source(NULL);
@@ -455,21 +455,21 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
   }
 #endif /* TSCH_JOIN_SECURED_ONLY */
   
-#if TSCH_SECURITY_ENABLED
+#if LLSEC802154_ENABLED
   if(!tsch_security_parse_frame(input_eb->payload, hdrlen,
       input_eb->len - hdrlen - tsch_security_mic_len(&frame),
       &frame, (linkaddr_t*)&frame.src_addr, &current_asn)) {
     PRINTF("TSCH:! parse_eb: failed to authenticate\n");
     return 0;
   }
-#endif /* TSCH_SECURITY_ENABLED */
+#endif /* LLSEC802154_ENABLED */
 
-#if !TSCH_SECURITY_ENABLED
+#if !LLSEC802154_ENABLED
   if(frame.fcf.security_enabled == 1) {
     PRINTF("TSCH:! parse_eb: we do not support security, but EB is secured\n");
     return 0;
   }
-#endif /* !TSCH_SECURITY_ENABLED */
+#endif /* !LLSEC802154_ENABLED */
 
 #if TSCH_JOIN_MY_PANID_ONLY
   /* Check if the EB comes from the PAN ID we expect */
@@ -609,24 +609,25 @@ PT_THREAD(tsch_scan(struct pt *pt))
 
   static struct input_packet input_eb;
   static struct etimer scan_timer;
+  /* Time when we started scanning on current_channel */
+  static clock_time_t current_channel_since;
 
   ASN_INIT(current_asn, 0, 0);
 
   etimer_set(&scan_timer, CLOCK_SECOND / TSCH_ASSOCIATION_POLL_FREQUENCY);
+  current_channel_since = clock_time();
 
   while(!tsch_is_associated && !tsch_is_coordinator) {
     /* Hop to any channel offset */
-    static int current_channel = 0;
-    /* Time when we started scanning on current_channel */
-    static clock_time_t current_channel_since = 0;
+    static uint8_t current_channel = 0;
 
     /* We are not coordinator, try to associate */
     rtimer_clock_t t0;
     int is_packet_pending = 0;
-    clock_time_t now_seconds = clock_seconds();
+    clock_time_t now_time = clock_time();
 
     /* Switch to a (new) channel for scanning */
-    if(current_channel == 0 || now_seconds != current_channel_since) {
+    if(current_channel == 0 || now_time - current_channel_since > TSCH_CHANNEL_SCAN_DURATION) {
       /* Pick a channel at random in TSCH_JOIN_HOPPING_SEQUENCE */
       uint8_t scan_channel = TSCH_JOIN_HOPPING_SEQUENCE[
           random_rand() % sizeof(TSCH_JOIN_HOPPING_SEQUENCE)];
@@ -635,7 +636,7 @@ PT_THREAD(tsch_scan(struct pt *pt))
         current_channel = scan_channel;
         PRINTF("TSCH: scanning on channel %u\n", scan_channel);
       }
-      current_channel_since = now_seconds;
+      current_channel_since = now_time;
     }
 
     /* Turn radio on and wait for EB */
@@ -649,11 +650,11 @@ PT_THREAD(tsch_scan(struct pt *pt))
     }
 
     if(is_packet_pending) {
-      /* Save packet timestamp */
-      NETSTACK_RADIO.get_object(RADIO_PARAM_LAST_PACKET_TIMESTAMP, &t0, sizeof(rtimer_clock_t));
-
       /* Read packet */
       input_eb.len = NETSTACK_RADIO.read(input_eb.payload, TSCH_PACKET_MAX_LEN);
+
+      /* Save packet timestamp */
+      NETSTACK_RADIO.get_object(RADIO_PARAM_LAST_PACKET_TIMESTAMP, &t0, sizeof(rtimer_clock_t));
 
       /* Parse EB and attempt to associate */
       PRINTF("TSCH: association: received packet (%u bytes) on channel %u\n", input_eb.len, current_channel);
@@ -746,14 +747,14 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
         }
         packetbuf_set_attr(PACKETBUF_ATTR_FRAME_TYPE, FRAME802154_BEACONFRAME);
         packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
-#if TSCH_SECURITY_ENABLED
+#if LLSEC802154_ENABLED
         if(tsch_is_pan_secured) {
           /* Set security level, key id and index */
           packetbuf_set_attr(PACKETBUF_ATTR_SECURITY_LEVEL, TSCH_SECURITY_KEY_SEC_LEVEL_EB);
           packetbuf_set_attr(PACKETBUF_ATTR_KEY_ID_MODE, FRAME802154_1_BYTE_KEY_ID_MODE); /* Use 1-byte key index */
           packetbuf_set_attr(PACKETBUF_ATTR_KEY_INDEX, TSCH_SECURITY_KEY_INDEX_EB);
         }
-#endif /* TSCH_SECURITY_ENABLED */
+#endif /* LLSEC802154_ENABLED */
         eb_len = tsch_packet_create_eb(packetbuf_dataptr(), PACKETBUF_SIZE,
             tsch_packet_seqno, &hdr_len, &tsch_sync_ie_offset);
         if(eb_len != 0) {
@@ -907,14 +908,14 @@ send_packet(mac_callback_t sent, void *ptr)
   packetbuf_set_attr(PACKETBUF_ATTR_FRAME_TYPE, FRAME802154_DATAFRAME);
   packetbuf_set_attr(PACKETBUF_ATTR_MAC_SEQNO, tsch_packet_seqno);
 
-#if TSCH_SECURITY_ENABLED
+#if LLSEC802154_ENABLED
   if(tsch_is_pan_secured) {
     /* Set security level, key id and index */
     packetbuf_set_attr(PACKETBUF_ATTR_SECURITY_LEVEL, TSCH_SECURITY_KEY_SEC_LEVEL_OTHER);
     packetbuf_set_attr(PACKETBUF_ATTR_KEY_ID_MODE, FRAME802154_1_BYTE_KEY_ID_MODE); /* Use 1-byte key index */
     packetbuf_set_attr(PACKETBUF_ATTR_KEY_INDEX, TSCH_SECURITY_KEY_INDEX_OTHER);
   }
-#endif /* TSCH_SECURITY_ENABLED */
+#endif /* LLSEC802154_ENABLED */
 
   packet_count_before = tsch_queue_packet_count(addr);
 
@@ -936,6 +937,7 @@ send_packet(mac_callback_t sent, void *ptr)
              tsch_queue_packet_count(addr),
              p->header_len,
              queuebuf_datalen(p->qb));
+      (void)packet_count_before; /* Discard "variable set but unused" warning in case of TSCH_LOG_LEVEL of 0 */
     }
   }
   if(ret != MAC_TX_DEFERRED) {

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 JOBS=5
 TARGET=i586-elf
 VERSION=2.2.0-1
@@ -38,7 +40,7 @@ prepare() {
     tar xf ${TARBALL}
     cd ${SRC_DIR}
 
-    for i in  `ls ${PATCH_DIR}`; do patch -p0 < ${PATCH_DIR}/${i}; done
+    for i in  `ls ${PATCH_DIR}/*.patch`; do patch -p0 < ${i}; done
 }
 
 
@@ -99,7 +101,9 @@ cleanup() {
 
 
 # By default we always call prepare, build and setup.
-prepare && build && setup
+prepare
+build
+setup
 
 # But we only cleanup if -c is used.
 case $1 in

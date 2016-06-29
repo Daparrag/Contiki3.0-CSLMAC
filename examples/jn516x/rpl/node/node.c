@@ -36,6 +36,7 @@
  */
 
 #include "contiki.h"
+#include "net/ipv6/uip-ds6.h"
 #include "net/rpl/rpl.h"
 #include "tools/rpl-tools.h"
 
@@ -71,7 +72,7 @@ PROCESS_THREAD(node_process, ev, data)
 
 #if CONFIG_VIA_BUTTON
   {
-#define CONFIG_WAIT_TIME 10
+#define CONFIG_WAIT_TIME 5
     SENSORS_ACTIVATE(button_sensor);
     etimer_set(&et, CLOCK_SECOND * CONFIG_WAIT_TIME);
 
@@ -98,7 +99,7 @@ PROCESS_THREAD(node_process, ev, data)
 
   if(is_coordinator) {
     uip_ipaddr_t prefix;
-    uip_ip6addr(&prefix, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
+    uip_ip6addr(&prefix, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0, 0, 0, 0);
     rpl_tools_init(&prefix);
   } else {
     rpl_tools_init(NULL);

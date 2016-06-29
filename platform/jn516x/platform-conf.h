@@ -57,10 +57,6 @@
 #define MICROMAC_CONF_CHANNEL 26
 #endif
 
-#ifdef RF_CHANNEL
-#define MICROMAC_CONF_CHANNEL RF_CHANNEL
-#endif
-
 /* 32kHz or 16MHz rtimers? */
 #ifdef RTIMER_CONF_USE_32KHZ
 #define RTIMER_USE_32KHZ  RTIMER_CONF_USE_32KHZ
@@ -84,9 +80,9 @@
 #define JN516X_EXTERNAL_CRYSTAL_OSCILLATOR (RTIMER_USE_32KHZ || JN516X_SLEEP_ENABLED)
 #endif /* JN516X_EXTERNAL_CRYSTAL_OSCILLATOR */
 
-/* Core rtimer.h defaults to 16 bit timer unless RTIMER_CLOCK_LT is defined */
+/* Core rtimer.h defaults to 16 bit timer unless RTIMER_CLOCK_DIFF is defined */
 typedef uint32_t rtimer_clock_t;
-#define RTIMER_CLOCK_LT(a, b)     ((int32_t)((a) - (b)) < 0)
+#define RTIMER_CLOCK_DIFF(a, b)     ((int32_t)((a) - (b)))
 
 /* 8ms timer tick */
 #define CLOCK_CONF_SECOND 125
