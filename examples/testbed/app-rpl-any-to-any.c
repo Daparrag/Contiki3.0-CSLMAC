@@ -53,7 +53,7 @@
 
 #if IN_COOJA
 #define START_DELAY (60 * CLOCK_SECOND)
-#define SEND_INTERVAL   (CLOCK_SECOND)
+#define SEND_INTERVAL   (60*CLOCK_SECOND)
 #else
 #define START_DELAY (15 * 60 * CLOCK_SECOND)
 #define SEND_INTERVAL   (60 * CLOCK_SECOND)
@@ -212,7 +212,7 @@ app_send_to(uint16_t id, uint32_t seqno, int ping)
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(unicast_sender_process, ev, data)
 {
-  static struct etimer periodic_timer;
+  static struct etimer periodic_timer, send_timer;
   uip_ipaddr_t global_ipaddr;
   static uint32_t cnt = 0;
   static uint32_t seqno;
@@ -243,10 +243,10 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
 #endif
 #endif
 
-  if(node_id != ROOT_ID && ((node_id % 10) == 0)) {
+  if(node_id != ROOT_ID/* && ((node_id % 10) == 0)*/) {
     unsigned short r, r2;
-    etimer_set(&periodic_timer, START_DELAY);
-    PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+    etimer_set(&send_timer, START_DELAY + (SEND_INTERVAL/2) + (node_id * random_rand() >> 4) % (SEND_INTERVAL/2));
+    PROCESS_WAIT_UNTIL(etimer_expired(&send_timer));
 
     r = ((node_id * random_rand() >> 4) % MAX_NODES);
     r2 = r;
@@ -279,8 +279,10 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
         print_network_status();
       }
 
-      PROCESS_WAIT_UNTIL(etimer_expired(&periodic_timer));
+      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
       etimer_reset(&periodic_timer);
+      etimer_set(&send_timer, (SEND_INTERVAL/2) + (random_rand() >> 4) % (SEND_INTERVAL/2));
+      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&send_timer));
     }
   } else {
     etimer_set(&periodic_timer, 60 * CLOCK_SECOND);
