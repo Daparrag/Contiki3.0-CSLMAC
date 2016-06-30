@@ -243,7 +243,7 @@ PROCESS_THREAD(unicast_sender_process, ev, data)
 #endif
 #endif
 
-  if(node_id != ROOT_ID/* && ((node_id % 10) == 0)*/) {
+  if(node_id != ROOT_ID && ((node_id % 10) == 0)) {
     unsigned short r, r2;
     etimer_set(&send_timer, START_DELAY + (SEND_INTERVAL/2) + (node_id * random_rand() >> 4) % (SEND_INTERVAL/2));
     PROCESS_WAIT_UNTIL(etimer_expired(&send_timer));
