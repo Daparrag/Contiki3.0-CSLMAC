@@ -91,10 +91,6 @@
 #undef TSCH_CONF_JOIN_MY_PANID_ONLY
 #define TSCH_CONF_JOIN_MY_PANID_ONLY 1
 
-/* Do not start TSCH at init, wait for NETSTACK_MAC.on() */
-#undef TSCH_CONF_AUTOSTART
-#define TSCH_CONF_AUTOSTART 1
-
 /* Adaptive timesync */
 #undef TSCH_CONF_ADAPTIVE_TIMESYNC
 #define TSCH_CONF_ADAPTIVE_TIMESYNC 1

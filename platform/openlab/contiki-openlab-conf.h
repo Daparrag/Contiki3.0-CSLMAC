@@ -212,6 +212,10 @@ typedef unsigned int uip_stats_t;
 #define CCIF
 #define CLIF
 
+/* Sensors / actuators */
+#define PLATFORM_HAS_LEDS    1
+#define PLATFORM_HAS_LIGHT   1
+
 /* include the project config */
 /* PROJECT_CONF_H might be defined in the project Makefile */
 #ifdef PROJECT_CONF_H
