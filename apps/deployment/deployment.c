@@ -117,8 +117,11 @@
 #if TSCH_CONF_MAC_MAX_FRAME_RETRIES == 8
 #pragma message "TSCH_CONF_MAC_MAX_FRAME_RETRIES == 8"
 #endif
-#if TSCH_CONF_MAC_MAX_FRAME_RETRIES == 15
-#pragma message "TSCH_CONF_MAC_MAX_FRAME_RETRIES == 15"
+#if TSCH_CONF_MAC_MAX_FRAME_RETRIES == 16
+#pragma message "TSCH_CONF_MAC_MAX_FRAME_RETRIES == 16"
+#endif
+#if TSCH_CONF_MAC_MAX_FRAME_RETRIES == 32
+#pragma message "TSCH_CONF_MAC_MAX_FRAME_RETRIES == 32"
 #endif
 
 /* Our absolute index in the id_mac table */

@@ -29,16 +29,22 @@ SCHEDULE_JOBS = True
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'probing': 0, 'rssibased': 0, 'squaredetx': 0, 'smartdup': 0}) #9+1
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'probing': 0, 'rssibased': 0, 'squaredetx': 0, 'smartdup': 0}) #10
 
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx':  8}) #11+3
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 16}) #10+4
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 32}) #14
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx':  8}) #11+3
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 16}) #10+4
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 2, 'channels': 4, 'rtx': 32}) #14
 
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx':  8}) #11+3
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx': 16}) #11+3
-configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx': 32}) #14
+#configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx': 32}) #14
+
+#configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 2, 'squaredetx': 1, 'channels': 16, 'rtx': 8})
+#configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 2, 'squaredetx': 1, 'channels': 4, 'rtx': 32})
+#configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 16, 'rtx': 8})
+#configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx': 32})
 
 def getFileName(config):
     name = "do4s"
+    #name = "atoa"
     if 'rpl_mode' in config:
         name += "_rpl%d"%(config['rpl_mode'])
     if 'probing' in config:
