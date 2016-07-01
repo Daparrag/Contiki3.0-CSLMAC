@@ -173,19 +173,19 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
       PRINTF("RPL: Rank error signalled in RPL option!\n");
       LOGU("RPL:! Rank error signalled in RPL option %u %u", down, sender_closer);
       /* Packet must be dropped and dio trickle timer reset, see RFC6550 - 11.2.2.2 */
-#if !RPL_NO_LOOP_DROP
-      rpl_reset_dio_timer(instance, "Loop detected and rank error signaled in RPI");
-      return 1;
-#else
-      if(!appdataptr_from_uip()) {
-        rpl_reset_dio_timer(instance, "Loop detected and rank error signaled in RPI");
-        return 1;
-      } else {
+#if RPL_CONF_FIXLOOP
+      if(!down && appdataptr_from_uip()) { /* Application traffic going up */
         LOGU("RPL:! Loop but not dropping application traffic");
         UIP_EXT_HDR_OPT_RPL_BUF->flags |= RPL_HDR_OPT_RANK_ERR;
         return 0;
+      } else {
+        rpl_reset_dio_timer(instance, "Loop detected and rank error signaled in RPI");
+        return 1;
       }
-#endif
+#else /* RPL_CONF_FIXLOOP */
+      rpl_reset_dio_timer(instance, "Loop detected and rank error signaled in RPI");
+      return 1;
+#endif /* RPL_CONF_FIXLOOP */
     }
     LOGU("RPL: Single error tolerated %u %u", down, sender_closer);
     RPL_STAT(rpl_stats.loop_warnings++);
