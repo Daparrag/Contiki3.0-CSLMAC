@@ -1092,7 +1092,8 @@ rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio)
   if((!RPL_WITH_NON_STORING && dio->mop == RPL_MOP_NON_STORING)
       || (!RPL_WITH_STORING && (dio->mop == RPL_MOP_STORING_NO_MULTICAST
           || dio->mop == RPL_MOP_STORING_MULTICAST))) {
-    PRINTF("RPL: DIO advertising a non-supported MOP %u\n", dio->mop);
+    printf("RPL: DIO advertising a non-supported MOP %u\n", dio->mop);
+    return;
   }
 
   /* Determine the objective function by using the
