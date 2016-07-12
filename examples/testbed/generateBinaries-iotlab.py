@@ -37,8 +37,10 @@ SCHEDULE_JOBS = True
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx': 16}) #11+3
 #configList.append({'app': 'app-rpl-ping-pong', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx': 32}) #14
 
+configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 2, 'squaredetx': 0, 'channels': 16, 'rtx': 8})
 #configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 2, 'squaredetx': 1, 'channels': 16, 'rtx': 8})
 #configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 2, 'squaredetx': 1, 'channels': 4, 'rtx': 32})
+configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 1, 'squaredetx': 1, 'channels': 16, 'rtx': 8})
 #configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 16, 'rtx': 8})
 #configList.append({'app': 'app-rpl-any-to-any', 'rpl_mode': 1, 'squaredetx': 0, 'channels': 4, 'rtx': 32})
 
