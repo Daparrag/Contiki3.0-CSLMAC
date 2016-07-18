@@ -249,8 +249,10 @@ keepalive_packet_sent(void *ptr, int status, int transmissions)
 #ifdef TSCH_LINK_NEIGHBOR_CALLBACK
   TSCH_LINK_NEIGHBOR_CALLBACK(packetbuf_addr(PACKETBUF_ADDR_RECEIVER), status, transmissions);
 #endif
+#if !MIN_LOG
   PRINTF("TSCH: KA sent to %u, st %d %d\n",
          TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER)), status, transmissions);
+#endif
   tsch_schedule_keepalive();
 }
 /*---------------------------------------------------------------------------*/
@@ -264,8 +266,10 @@ keepalive_send()
     packetbuf_clear();
     packetbuf_set_addr(PACKETBUF_ADDR_RECEIVER, &n->addr);
     NETSTACK_LLSEC.send(keepalive_packet_sent, NULL);
+#if !MIN_LOG
     PRINTF("TSCH: sending KA to %u\n",
            TSCH_LOG_ID_FROM_LINKADDR(&n->addr));
+#endif
   }
 }
 /*---------------------------------------------------------------------------*/
