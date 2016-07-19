@@ -1264,16 +1264,16 @@ send_packet(linkaddr_t *dest)
   packetbuf_set_addr(PACKETBUF_ADDR_SENDER,(void*)&uip_lladdr);
 #endif
 
-  /* Provide a callback function to receive the result of
-     a packet transmission. */
-  NETSTACK_LLSEC.send(&packet_sent, NULL);
-
 #if !MIN_LOG
   LOGP("6LoWPAN: %s send to %d (%u bytes)",
         linkaddr_cmp(dest, &linkaddr_null) ? "bc" : "uc",
             LOG_ID_FROM_LINKADDR(dest),
             packetbuf_datalen());
 #endif
+
+  /* Provide a callback function to receive the result of
+     a packet transmission. */
+  NETSTACK_LLSEC.send(&packet_sent, NULL);
 
   /* If we are sending multiple packets in a row, we need to let the
      watchdog know that we are still alive. */
