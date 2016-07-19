@@ -675,6 +675,22 @@ tcpip_ipv6_output(void)
     }
 #endif /* UIP_CONF_IPV6_RPL && RPL_WITH_STORING */
     nbr = uip_ds6_nbr_lookup(nexthop);
+
+#if !UIP_ND6_SEND_NA
+    if(nbr == NULL) {
+      /* For testbed experimentation only: force addition of the neighbor. This is to bypass
+       * the initial phase of learning MAC-IP mappings and reach convergence faster. */
+      uip_lladdr_t lladdr;
+      lladdr_from_ipaddr_uuid(&lladdr, nexthop);
+      if((nbr = uip_ds6_nbr_add(nexthop, &lladdr,
+          0, NBR_REACHABLE, NBR_TABLE_REASON_TCPIP, NULL)) == NULL) {
+        LOGU("Tcpip:! next hop %u not in nbr cache", LOG_ID_FROM_IPADDR(nexthop));
+        uip_len = 0;
+        return;
+      }
+    }
+#endif /* !UIP_ND6_SEND_NA */
+
     if(nbr == NULL) {
 #if UIP_ND6_SEND_NA
       if((nbr = uip_ds6_nbr_add(nexthop, NULL, 0, NBR_INCOMPLETE, NBR_TABLE_REASON_IPV6_ND, NULL)) == NULL) {
@@ -704,18 +720,6 @@ tcpip_ipv6_output(void)
         stimer_set(&nbr->sendns, uip_ds6_if.retrans_timer / 1000);
         nbr->nscount = 1;
         /* Send the first NS try from here (multicast destination IP address). */
-      }
-#else /* UIP_ND6_SEND_NA */
-
-      /* For testbed experimentation only: force addition of the neighbor. This is to bypass
-       * the initial phase of learning MAC-IP mappings and reach convergence faster. */
-      uip_lladdr_t lladdr;
-      lladdr_from_ipaddr_uuid(&lladdr, nexthop);
-      if((nbr = uip_ds6_nbr_add(nexthop, &lladdr,
-          0, NBR_REACHABLE, NBR_TABLE_REASON_TCPIP, NULL)) == NULL) {
-        LOGU("Tcpip:! next hop %u not in nbr cache", LOG_ID_FROM_IPADDR(nexthop));
-        uip_len = 0;
-        return;
       }
 #endif /* UIP_ND6_SEND_NA */
     } else {
