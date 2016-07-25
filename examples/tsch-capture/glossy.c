@@ -41,57 +41,93 @@
 #include <stdio.h>
 #include "contiki-conf.h"
 #include "net/netstack.h"
+#include "net/net-debug.h"
 #include "net/rime/rime.h"
 #include "net/mac/tsch/tsch.h"
+#include "deployment.h"
 
 const linkaddr_t coordinator_addr =    { { 1, 0 } };
-const linkaddr_t destination_addr =    { { 1, 0 } };
+static void recv_bc(struct broadcast_conn *c, const linkaddr_t *from);
+static void sent_bc(struct broadcast_conn *ptr, int status, int num_tx);
+static const struct broadcast_callbacks broadcast_callback = { recv_bc, sent_bc };
+static struct broadcast_conn bc;
+
+static int gloss_tx_count;
+static struct ctimer glossy_timer;
+
+#define TX_COUNT 3
+static unsigned char payload[128];
+static unsigned payload_len;
+static unsigned glossy_round = 0;
 
 /*---------------------------------------------------------------------------*/
-PROCESS(unicast_test_process, "Rime Node");
+PROCESS(unicast_test_process, "Rime Glossy Node");
 AUTOSTART_PROCESSES(&unicast_test_process);
 
 /*---------------------------------------------------------------------------*/
 static void
-recv_uc(struct unicast_conn *c, const linkaddr_t *from)
+glossy_send()
 {
-  printf("App: unicast message received from %u.%u\n",
-   from->u8[0], from->u8[1]);
+  packetbuf_copyfrom(payload, payload_len);
+  broadcast_send(&bc);
+  if(--gloss_tx_count) {
+    ctimer_set(&glossy_timer, 0, glossy_send, NULL);
+  }
+}
+/*---------------------------------------------------------------------------*/
+void
+glossy_start()
+{
+  *((unsigned*)payload) = glossy_round;
+  payload_len = 32;
+  gloss_tx_count = TX_COUNT;
+  glossy_send();
 }
 /*---------------------------------------------------------------------------*/
 static void
-sent_uc(struct unicast_conn *ptr, int status, int num_tx)
+recv_bc(struct broadcast_conn *c, const linkaddr_t *from)
 {
-  printf("App: unicast message sent, status %u, num_tx %u\n",
-   status, num_tx);
+  packetbuf_copyto(payload);
+  if(*((unsigned*)payload) > glossy_round) {
+    glossy_round = *((unsigned*)payload);
+    glossy_start();
+    printf("App: bc message received from %u, round %u\n", LOG_ID_FROM_LINKADDR(from), glossy_round);
+  }
 }
-
-static const struct unicast_callbacks unicast_callbacks = { recv_uc, sent_uc };
-static struct unicast_conn uc;
-
+/*---------------------------------------------------------------------------*/
+static void
+sent_bc(struct broadcast_conn *ptr, int status, int num_tx)
+{
+}
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(unicast_test_process, ev, data)
 {
+  static struct etimer et;
   PROCESS_BEGIN();
+
+  if(deployment_init(ROOT_ID)) {
+  } else {
+    etimer_set(&et, 60 * CLOCK_SECOND);
+    while(1) {
+      printf("Info: Not running. My MAC address: ");
+      net_debug_lladdr_print((const uip_lladdr_t *)&linkaddr_node_addr);
+      printf("\n");
+      PROCESS_WAIT_UNTIL(etimer_expired(&et));
+      etimer_reset(&et);
+    }
+  }
 
   tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
   NETSTACK_MAC.on();
 
-  unicast_open(&uc, 146, &unicast_callbacks);
+  broadcast_open(&bc, 146, &broadcast_callback);
 
-  while(1) {
-    static struct etimer et;
+  etimer_set(&et, 30 * CLOCK_SECOND);
+  PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
 
-    etimer_set(&et, CLOCK_SECOND);
-
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
-
-    packetbuf_copyfrom("Hello", 5);
-
-    if(!linkaddr_cmp(&destination_addr, &linkaddr_node_addr)) {
-      printf("App: sending unicast message to %u.%u\n", destination_addr.u8[0], destination_addr.u8[1]);
-      unicast_send(&uc, &destination_addr);
-    }
+  if(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr)) {
+    glossy_round++;
+    glossy_start();
   }
 
   PROCESS_END();

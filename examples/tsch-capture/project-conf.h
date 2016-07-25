@@ -41,6 +41,8 @@
 #ifndef __PROJECT_CONF_H__
 #define __PROJECT_CONF_H__
 
+#include "deployment-def.h"
+
 /* Netstack layers */
 #undef NETSTACK_CONF_MAC
 #define NETSTACK_CONF_MAC     tschmac_driver
@@ -56,13 +58,25 @@
 #undef TSCH_CONF_AUTOSELECT_TIME_SOURCE
 #define TSCH_CONF_AUTOSELECT_TIME_SOURCE 1
 
+/* Needed for IoT-LAB M3 nodes */
+#undef RF2XX_SOFT_PREPARE
+#define RF2XX_SOFT_PREPARE 0
+#undef RF2XX_WITH_TSCH
+#define RF2XX_WITH_TSCH 1
+
+/* Needed for CC2538 platforms only */
+/* For TSCH we have to use the more accurate crystal oscillator
+ * by default the RC oscillator is activated */
+#undef SYS_CTRL_CONF_OSC32K_USE_XTAL
+#define SYS_CTRL_CONF_OSC32K_USE_XTAL 1
+
 /* Needed for cc2420 platforms only */
 /* Disable DCO calibration (uses timerB) */
 #undef DCOSYNCH_CONF_ENABLED
-#define DCOSYNCH_CONF_ENABLED            0
+#define DCOSYNCH_CONF_ENABLED 0
 /* Enable SFD timestamps (uses timerB) */
 #undef CC2420_CONF_SFD_TIMESTAMPS
-#define CC2420_CONF_SFD_TIMESTAMPS       1
+#define CC2420_CONF_SFD_TIMESTAMPS 1
 
 /* TSCH logging. 0: disabled. 1: basic log. 2: with delayed
  * log messages from interrupt */
@@ -80,9 +94,26 @@
 /* 6TiSCH minimal schedule length.
  * Larger values result in less frequent active slots: reduces capacity and saves energy. */
 #undef TSCH_SCHEDULE_CONF_DEFAULT_LENGTH
-#define TSCH_SCHEDULE_CONF_DEFAULT_LENGTH 3
+#define TSCH_SCHEDULE_CONF_DEFAULT_LENGTH 1
+
+#undef TSCH_CONF_ADAPTIVE_TIMESYNC
+#define TSCH_CONF_ADAPTIVE_TIMESYNC 1
+
+#undef TSCH_CONF_DEFAULT_HOPPING_SEQUENCE
+//#define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE TSCH_HOPPING_SEQUENCE_16_16
+#define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE TSCH_HOPPING_SEQUENCE_4_4
 
 #undef TSCH_LOG_CONF_ID_FROM_LINKADDR
 #define TSCH_LOG_CONF_ID_FROM_LINKADDR(addr) ((addr) ? (addr)->u8[LINKADDR_SIZE - 2] : 0)
+
+#undef LINKADDR_CONF_SIZE
+#define LINKADDR_CONF_SIZE 8
+
+#define WITH_DEPLOYMENT 1
+#define WITH_LOG 1
+#if WITH_LOG
+#include "deployment.h"
+#include "deployment-log.h"
+#endif
 
 #endif /* __PROJECT_CONF_H__ */
