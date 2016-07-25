@@ -28,43 +28,47 @@
  *
  */
 
-#ifndef PROJECT_ROUTER_CONF_H_
-#define PROJECT_ROUTER_CONF_H_
+/**
+ * \file
+ *         A simple webserver
+ * \author
+ *         Adam Dunkels <adam@sics.se>
+ *         Niclas Finne <nfi@sics.se>
+ *         Joakim Eriksson <joakime@sics.se>
+ */
 
-#ifndef WITH_NON_STORING
-#define WITH_NON_STORING 0 /* Set this to run with non-storing mode */
-#endif /* WITH_NON_STORING */
+#ifndef HTTPD_SIMPLE_H_
+#define HTTPD_SIMPLE_H_
 
-#if WITH_NON_STORING
-#undef RPL_NS_CONF_LINK_NUM
-#define RPL_NS_CONF_LINK_NUM 40 /* Number of links maintained at the root */
-#undef UIP_CONF_MAX_ROUTES
-#define UIP_CONF_MAX_ROUTES 0 /* No need for routes */
-#undef RPL_CONF_MOP
-#define RPL_CONF_MOP RPL_MOP_NON_STORING /* Mode of operation*/
-#endif /* WITH_NON_STORING */
+#include "contiki-net.h"
 
-#ifndef UIP_FALLBACK_INTERFACE
-#define UIP_FALLBACK_INTERFACE rpl_interface
-#endif
+/* The current internal border router webserver ignores the requested file name */
+/* and needs no per-connection output buffer, so save some RAM */
+#ifndef WEBSERVER_CONF_CFS_PATHLEN
+#define HTTPD_PATHLEN 2
+#else /* WEBSERVER_CONF_CFS_CONNS */
+#define HTTPD_PATHLEN WEBSERVER_CONF_CFS_PATHLEN
+#endif /* WEBSERVER_CONF_CFS_CONNS */
 
-#ifndef QUEUEBUF_CONF_NUM
-#define QUEUEBUF_CONF_NUM          4
-#endif
+struct httpd_state;
+typedef char (* httpd_simple_script_t)(struct httpd_state *s);
 
-#ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_CONF_BUFFER_SIZE    140
-#endif
+struct httpd_state {
+  struct timer timer;
+  struct psock sin, sout;
+  struct pt outputpt;
+  char inputbuf[HTTPD_PATHLEN + 24];
+/*char outputbuf[UIP_TCP_MSS]; */
+  char filename[HTTPD_PATHLEN];
+  httpd_simple_script_t script;
+  char state;
+};
 
-#ifndef UIP_CONF_RECEIVE_WINDOW
-#define UIP_CONF_RECEIVE_WINDOW  60
-#endif
+void httpd_init(void);
+void httpd_appcall(void *state);
 
-#ifndef WEBSERVER_CONF_CFS_CONNS
-#define WEBSERVER_CONF_CFS_CONNS 2
-#endif
+httpd_simple_script_t httpd_simple_get_script(const char *name);
 
-#undef SLIP_ARCH_CONF_ENABLE
-#define SLIP_ARCH_CONF_ENABLE 1
+#define SEND_STRING(s, str) PSOCK_SEND(s, (uint8_t *)str, strlen(str))
 
-#endif /* PROJECT_ROUTER_CONF_H_ */
+#endif /* HTTPD_SIMPLE_H_ */

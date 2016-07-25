@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2013, Institute for Pervasive Computing, ETH Zurich
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,45 +26,55 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * This file is part of the Contiki operating system.
  */
 
-#ifndef PROJECT_ROUTER_CONF_H_
-#define PROJECT_ROUTER_CONF_H_
+/**
+ * \file
+ *      ETSI Plugtest resource
+ * \author
+ *      Matthias Kovatsch <kovatsch@inf.ethz.ch>
+ */
 
-#ifndef WITH_NON_STORING
-#define WITH_NON_STORING 0 /* Set this to run with non-storing mode */
-#endif /* WITH_NON_STORING */
+#include <string.h>
+#include "rest-engine.h"
+#include "er-coap.h"
+#include "er-plugtest.h"
 
-#if WITH_NON_STORING
-#undef RPL_NS_CONF_LINK_NUM
-#define RPL_NS_CONF_LINK_NUM 40 /* Number of links maintained at the root */
-#undef UIP_CONF_MAX_ROUTES
-#define UIP_CONF_MAX_ROUTES 0 /* No need for routes */
-#undef RPL_CONF_MOP
-#define RPL_CONF_MOP RPL_MOP_NON_STORING /* Mode of operation*/
-#endif /* WITH_NON_STORING */
+static void res_put_handler(void *request, void *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
+static void res_delete_handler(void *request, void *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
-#ifndef UIP_FALLBACK_INTERFACE
-#define UIP_FALLBACK_INTERFACE rpl_interface
-#endif
+RESOURCE(res_plugtest_create3,
+         "title=\"Default test resource\"",
+         NULL,
+         NULL,
+         res_put_handler,
+         res_delete_handler);
 
-#ifndef QUEUEBUF_CONF_NUM
-#define QUEUEBUF_CONF_NUM          4
-#endif
+static uint8_t create3_exists = 0;
 
-#ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_CONF_BUFFER_SIZE    140
-#endif
+static void
+res_put_handler(void *request, void *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
+  PRINTF("/create3       PUT ");
 
-#ifndef UIP_CONF_RECEIVE_WINDOW
-#define UIP_CONF_RECEIVE_WINDOW  60
-#endif
+  if(coap_get_header_if_none_match(request)) {
+    if(!create3_exists) {
+      REST.set_response_status(response, REST.status.CREATED);
 
-#ifndef WEBSERVER_CONF_CFS_CONNS
-#define WEBSERVER_CONF_CFS_CONNS 2
-#endif
+      create3_exists = 1;
+    } else {
+      REST.set_response_status(response, PRECONDITION_FAILED_4_12);
+    }
+  } else {
+    REST.set_response_status(response, REST.status.CHANGED);
+  }
+}
+static void
+res_delete_handler(void *request, void *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
+  PRINTF("/create3       DELETE ");
+  REST.set_response_status(response, REST.status.DELETED);
 
-#undef SLIP_ARCH_CONF_ENABLE
-#define SLIP_ARCH_CONF_ENABLE 1
-
-#endif /* PROJECT_ROUTER_CONF_H_ */
+  create3_exists = 0;
+}

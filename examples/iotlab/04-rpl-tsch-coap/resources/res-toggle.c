@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2013, Institute for Pervasive Computing, ETH Zurich
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,45 +26,38 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * This file is part of the Contiki operating system.
  */
 
-#ifndef PROJECT_ROUTER_CONF_H_
-#define PROJECT_ROUTER_CONF_H_
+/**
+ * \file
+ *      Example resource
+ * \author
+ *      Matthias Kovatsch <kovatsch@inf.ethz.ch>
+ */
 
-#ifndef WITH_NON_STORING
-#define WITH_NON_STORING 0 /* Set this to run with non-storing mode */
-#endif /* WITH_NON_STORING */
+#include "contiki.h"
 
-#if WITH_NON_STORING
-#undef RPL_NS_CONF_LINK_NUM
-#define RPL_NS_CONF_LINK_NUM 40 /* Number of links maintained at the root */
-#undef UIP_CONF_MAX_ROUTES
-#define UIP_CONF_MAX_ROUTES 0 /* No need for routes */
-#undef RPL_CONF_MOP
-#define RPL_CONF_MOP RPL_MOP_NON_STORING /* Mode of operation*/
-#endif /* WITH_NON_STORING */
+#if PLATFORM_HAS_LEDS
 
-#ifndef UIP_FALLBACK_INTERFACE
-#define UIP_FALLBACK_INTERFACE rpl_interface
-#endif
+#include <string.h>
+#include "contiki.h"
+#include "rest-engine.h"
+#include "dev/leds.h"
 
-#ifndef QUEUEBUF_CONF_NUM
-#define QUEUEBUF_CONF_NUM          4
-#endif
+static void res_post_handler(void *request, void *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
-#ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_CONF_BUFFER_SIZE    140
-#endif
+/* A simple actuator example. Toggles the red led */
+RESOURCE(res_toggle,
+         "title=\"Red LED\";rt=\"Control\"",
+         NULL,
+         res_post_handler,
+         NULL,
+         NULL);
 
-#ifndef UIP_CONF_RECEIVE_WINDOW
-#define UIP_CONF_RECEIVE_WINDOW  60
-#endif
-
-#ifndef WEBSERVER_CONF_CFS_CONNS
-#define WEBSERVER_CONF_CFS_CONNS 2
-#endif
-
-#undef SLIP_ARCH_CONF_ENABLE
-#define SLIP_ARCH_CONF_ENABLE 1
-
-#endif /* PROJECT_ROUTER_CONF_H_ */
+static void
+res_post_handler(void *request, void *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
+  leds_toggle(LEDS_RED);
+}
+#endif /* PLATFORM_HAS_LEDS */

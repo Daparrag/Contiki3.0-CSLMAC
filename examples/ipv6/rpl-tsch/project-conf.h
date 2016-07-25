@@ -78,6 +78,12 @@
 #define TSCH_CALLBACK_JOINING_NETWORK tsch_rpl_callback_joining_network
 #define TSCH_CALLBACK_LEAVING_NETWORK tsch_rpl_callback_leaving_network
 
+/* Needed for IoT-LAB M3 nodes */
+#undef RF2XX_SOFT_PREPARE
+#define RF2XX_SOFT_PREPARE 0
+#undef RF2XX_WITH_TSCH
+#define RF2XX_WITH_TSCH 1
+
 /* Needed for CC2538 platforms only */
 /* For TSCH we have to use the more accurate crystal oscillator
  * by default the RC oscillator is activated */

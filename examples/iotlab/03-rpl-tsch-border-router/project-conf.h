@@ -53,7 +53,7 @@
 #endif
 
 #ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_CONF_BUFFER_SIZE    140
+#define UIP_CONF_BUFFER_SIZE    1280
 #endif
 
 #ifndef UIP_CONF_RECEIVE_WINDOW
@@ -66,5 +66,12 @@
 
 #undef SLIP_ARCH_CONF_ENABLE
 #define SLIP_ARCH_CONF_ENABLE 1
+
+#include "../00-configuration/tsch-project-conf.h"
+#include "../00-configuration/iotlab-project-conf.h"
+
+/* Do not start TSCH at init, wait for NETSTACK_MAC.on() */
+#undef TSCH_CONF_AUTOSTART
+#define TSCH_CONF_AUTOSTART 0
 
 #endif /* PROJECT_ROUTER_CONF_H_ */

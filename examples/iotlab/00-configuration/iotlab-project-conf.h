@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2016, Inria.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,43 +28,46 @@
  *
  */
 
-#ifndef PROJECT_ROUTER_CONF_H_
-#define PROJECT_ROUTER_CONF_H_
+/**
+ * \author Simon Duquennoy <simon.duquennoy@inria.fr>
+ */
 
-#ifndef WITH_NON_STORING
-#define WITH_NON_STORING 0 /* Set this to run with non-storing mode */
-#endif /* WITH_NON_STORING */
+#ifndef __IOTLAB_PROJECT_CONF_H__
+#define __IOTLAB_PROJECT_CONF_H__
 
-#if WITH_NON_STORING
+#ifndef IOTLAB_WITH_NON_STORING
+#define IOTLAB_WITH_NON_STORING 1 /* Set this to run with RPL non-storing mode */
+#endif
+
+#undef NBR_TABLE_CONF_MAX_NEIGHBORS
+#define NBR_TABLE_CONF_MAX_NEIGHBORS 130
+
+ /* Add a bit of extra probing in the non-storing case to compensate for reduced DAO traffic */
+ #undef RPL_CONF_PROBING_INTERVAL
+ #define RPL_CONF_PROBING_INTERVAL (60 * CLOCK_SECOND)
+
+ /* Use no DIO suppression */
+ #undef RPL_CONF_DIO_REDUNDANCY
+ #define RPL_CONF_DIO_REDUNDANCY 0xff
+
+#if IOTLAB_WITH_NON_STORING
+
 #undef RPL_NS_CONF_LINK_NUM
-#define RPL_NS_CONF_LINK_NUM 40 /* Number of links maintained at the root */
+#define RPL_NS_CONF_LINK_NUM 360 /* Number of links maintained at the root. Can be set to 0 at non-root nodes. */
 #undef UIP_CONF_MAX_ROUTES
 #define UIP_CONF_MAX_ROUTES 0 /* No need for routes */
 #undef RPL_CONF_MOP
 #define RPL_CONF_MOP RPL_MOP_NON_STORING /* Mode of operation*/
-#endif /* WITH_NON_STORING */
 
-#ifndef UIP_FALLBACK_INTERFACE
-#define UIP_FALLBACK_INTERFACE rpl_interface
-#endif
+#else /* IOTLAB_WITH_NON_STORING */
 
-#ifndef QUEUEBUF_CONF_NUM
-#define QUEUEBUF_CONF_NUM          4
-#endif
+#undef RPL_NS_CONF_LINK_NUM
+#define RPL_NS_CONF_LINK_NUM 0
+#undef UIP_CONF_MAX_ROUTES
+#define UIP_CONF_MAX_ROUTES  360
+#undef RPL_CONF_MOP
+#define RPL_CONF_MOP RPL_MOP_STORING_NO_MULTICAST
 
-#ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_CONF_BUFFER_SIZE    140
-#endif
+#endif /* IOTLAB_WITH_NON_STORING */
 
-#ifndef UIP_CONF_RECEIVE_WINDOW
-#define UIP_CONF_RECEIVE_WINDOW  60
-#endif
-
-#ifndef WEBSERVER_CONF_CFS_CONNS
-#define WEBSERVER_CONF_CFS_CONNS 2
-#endif
-
-#undef SLIP_ARCH_CONF_ENABLE
-#define SLIP_ARCH_CONF_ENABLE 1
-
-#endif /* PROJECT_ROUTER_CONF_H_ */
+#endif /* __IOTLAB_PROJECT_CONF_H__ */
