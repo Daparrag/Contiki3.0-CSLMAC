@@ -29,43 +29,28 @@
  */
 /**
  * \file
-
- *         Orchestra: a slotframe dedicated to transmission of EBs.
- *         Nodes transmit at a timeslot defined as hash(MAC) % ORCHESTRA_EBSF_PERIOD
- *         Nodes listen at a timeslot defined as hash(time_source.MAC) % ORCHESTRA_EBSF_PERIOD
+ *         Orchestra: a slotframe with a single shared link, common to all nodes
+ *         in the network, used for unicast and broadcast.
+ *
  * \author Simon Duquennoy <simonduq@sics.se>
  */
 
 #include "contiki.h"
 #include "orchestra.h"
-#include "net/packetbuf.h"
 
 static uint16_t slotframe_handle = 0;
 static uint16_t channel_offset = 0;
-static struct tsch_slotframe *sf_eb;
-static struct tsch_slotframe *sf_eb_rx;
 
-/*---------------------------------------------------------------------------*/
-static uint16_t
-get_node_timeslot(const linkaddr_t *addr)
-{
-#if ORCHESTRA_EBSF_PERIOD > 0
-  return ORCHESTRA_LINKADDR_HASH(addr) % ORCHESTRA_EBSF_PERIOD;
-#else
-  return 0xffff;
-#endif
-}
 /*---------------------------------------------------------------------------*/
 static int
 select_packet(uint16_t *slotframe, uint16_t *timeslot)
 {
-  /* Select EBs only */
   if(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE) == FRAME802154_BEACONFRAME) {
     if(slotframe != NULL) {
       *slotframe = slotframe_handle;
     }
     if(timeslot != NULL) {
-      *timeslot = get_node_timeslot(&linkaddr_node_addr);
+      *timeslot = 0;
     }
     return 1;
   }
@@ -75,23 +60,18 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot)
 static void
 init(uint16_t sf_handle)
 {
-  slotframe_handle = 0;
-  channel_offset = 0;
-  sf_eb = tsch_schedule_add_slotframe(0, ORCHESTRA_EBSF_PERIOD);
-  /* EB link: every neighbor uses its own to avoid contention */
-  tsch_schedule_add_link(sf_eb,
-                         LINK_OPTION_TX,
-                         LINK_TYPE_ADVERTISING_ONLY, &tsch_broadcast_address,
-                         get_node_timeslot(&linkaddr_node_addr), 0);
-  /* Listen to all */
-  sf_eb_rx = tsch_schedule_add_slotframe(1, 1);
-    tsch_schedule_add_link(sf_eb_rx,
-    LINK_OPTION_RX,
-    LINK_TYPE_ADVERTISING_ONLY, &tsch_broadcast_address,
-    0, 0);
+  slotframe_handle = sf_handle;
+  channel_offset = slotframe_handle;
+  /* Default slotframe: for broadcast or unicast to neighbors we
+   * do not have a link to */
+  struct tsch_slotframe *sf_common = tsch_schedule_add_slotframe(slotframe_handle, ORCHESTRA_EBSF_PERIOD);
+  tsch_schedule_add_link(sf_common,
+      LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED,
+      LINK_TYPE_ADVERTISING, &tsch_broadcast_address,
+      0, channel_offset);
 }
 /*---------------------------------------------------------------------------*/
-struct orchestra_rule eb_per_time_source_listen_all = {
+struct orchestra_rule eb_common = {
   init,
   NULL,
   select_packet,

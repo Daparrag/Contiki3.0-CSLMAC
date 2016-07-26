@@ -46,34 +46,12 @@
 #include "net/mac/tsch/tsch.h"
 #include "deployment.h"
 #include "lib/random.h"
-
-const linkaddr_t coordinator_addr =    { { 1, 0 } };
-static void recv_bc(struct broadcast_conn *c, const linkaddr_t *from);
-static void sent_bc(struct broadcast_conn *ptr, int status, int num_tx);
-static const struct broadcast_callbacks broadcast_callback = { recv_bc, sent_bc };
-static struct broadcast_conn bc;
-
-static unsigned char payload[128];
-static unsigned payload_len;
-
-#define START_DELAY (60 * CLOCK_SECOND)
-#define SEND_INTERVAL   (5 * CLOCK_SECOND)
+#include "orchestra.h"
 
 /*---------------------------------------------------------------------------*/
-PROCESS(unicast_test_process, "Rime Capture Node");
+PROCESS(unicast_test_process, "Rime Probing Node");
 AUTOSTART_PROCESSES(&unicast_test_process);
 
-/*---------------------------------------------------------------------------*/
-static void
-recv_bc(struct broadcast_conn *c, const linkaddr_t *from)
-{
-  printf("App: bc message received from %u\n", LOG_ID_FROM_LINKADDR(from));
-}
-/*---------------------------------------------------------------------------*/
-static void
-sent_bc(struct broadcast_conn *ptr, int status, int num_tx)
-{
-}
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(unicast_test_process, ev, data)
 {
@@ -81,14 +59,6 @@ PROCESS_THREAD(unicast_test_process, ev, data)
   PROCESS_BEGIN();
 
   if(deployment_init(ROOT_ID)) {
-    etimer_set(&et, 1 * CLOCK_SECOND);
-    while(1) {
-      printf("Info: Running. My nodeid %u. My MAC address: ", node_id);
-      net_debug_lladdr_print((const uip_lladdr_t *)&linkaddr_node_addr);
-      printf("\n");
-      PROCESS_WAIT_UNTIL(etimer_expired(&et));
-      etimer_reset(&et);
-    }
   } else {
     etimer_set(&et, 1 * CLOCK_SECOND);
     while(1) {
@@ -100,22 +70,9 @@ PROCESS_THREAD(unicast_test_process, ev, data)
     }
   }
 
-  tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+  tsch_set_coordinator(node_id == ROOT_ID);
   NETSTACK_MAC.on();
-  broadcast_open(&bc, 146, &broadcast_callback);
-
-  etimer_set(&et, START_DELAY + (SEND_INTERVAL/2) + (node_id * random_rand() >> 4) % (SEND_INTERVAL/2));
-  PROCESS_WAIT_UNTIL(etimer_expired(&et));
-
-  etimer_set(&et, SEND_INTERVAL);
-  while(1) {
-    PROCESS_WAIT_UNTIL(etimer_expired(&et));
-    etimer_reset(&et);
-
-    payload_len = 32;
-    packetbuf_copyfrom(payload, payload_len);
-    broadcast_send(&bc);
-  }
+  orchestra_init();
 
   PROCESS_END();
 }

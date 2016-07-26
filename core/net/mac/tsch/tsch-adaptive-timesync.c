@@ -38,6 +38,7 @@
  *
  */
 
+#include "tsch.h"
 #include "tsch-adaptive-timesync.h"
 #include "tsch-log.h"
 #include <stdio.h>
@@ -99,7 +100,7 @@ timesync_learn_drift_ticks(uint32_t time_delta_asn, int32_t drift_ticks)
 
   TSCH_LOG_ADD(tsch_log_message,
       snprintf(log->message, sizeof(log->message),
-          "drift %ld", drift_ppm / 256));
+          "drift %ld (%ld)", drift_ppm / 256, drift_ppm));
 }
 /*---------------------------------------------------------------------------*/
 /* Either reset or update the neighbor's drift */

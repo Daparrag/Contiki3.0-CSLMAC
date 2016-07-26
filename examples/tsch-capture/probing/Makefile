@@ -1,9 +1,13 @@
-CONTIKI=../..
-CONTIKI_PROJECT = glossy
+CONTIKI=../../..
+CONTIKI_PROJECT = probing
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
 
-PROJECTDIRS += tools
-PROJECT_SOURCEFILES += node-id.c
+PROJECTDIRS += ../tools
+PROJECT_SOURCEFILES += node-id.c \
+  orchestra-rule-eb-common.c \
+  orchestra-rule-eb-common-txonly.c \
+  orchestra-rule-eb-per-time-source-listen-all.c \
+  orchestra-rule-unicast-per-time-source.c
 
 DEPLOYMENT_COOJA=1
 DEPLOYMENT_MOTES=2
@@ -18,7 +22,7 @@ ifdef DEP
 CFLAGS+= -DDEPLOYMENT=$(DEP)
 endif
 
-APPS = deployment
+APPS = deployment orchestra
 CONTIKI_WITH_RIME = 1
 MODULES += core/net/mac/tsch
 
