@@ -43,6 +43,7 @@
 static uint16_t slotframe_handle = 0;
 static uint16_t channel_offset = 0;
 static struct tsch_slotframe *sf_eb;
+static struct tsch_slotframe *sf_eb_rx;
 
 /*---------------------------------------------------------------------------*/
 static uint16_t
@@ -72,44 +73,27 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot)
 }
 /*---------------------------------------------------------------------------*/
 static void
-new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new)
-{
-  uint16_t old_ts = get_node_timeslot(&old->addr);
-  uint16_t new_ts = get_node_timeslot(&new->addr);
-
-  if(new_ts == old_ts) {
-    return;
-  }
-
-  if(old_ts != 0xffff) {
-    /* Stop listening to the old time source's EBs */
-    tsch_schedule_remove_link_by_timeslot(sf_eb, old_ts);
-  }
-  if(new_ts != 0xffff) {
-    /* Listen to the time source's EBs */
-    tsch_schedule_add_link(sf_eb,
-                           LINK_OPTION_RX,
-                           LINK_TYPE_ADVERTISING_ONLY, NULL,
-                           new_ts, 0);
-  }
-}
-/*---------------------------------------------------------------------------*/
-static void
 init(uint16_t sf_handle)
 {
-  slotframe_handle = sf_handle;
-  channel_offset = sf_handle;
-  sf_eb = tsch_schedule_add_slotframe(slotframe_handle, ORCHESTRA_EBSF_PERIOD);
+  slotframe_handle = 0;
+  channel_offset = 0;
+  sf_eb = tsch_schedule_add_slotframe(0, ORCHESTRA_EBSF_PERIOD);
   /* EB link: every neighbor uses its own to avoid contention */
   tsch_schedule_add_link(sf_eb,
                          LINK_OPTION_TX,
                          LINK_TYPE_ADVERTISING_ONLY, &tsch_broadcast_address,
                          get_node_timeslot(&linkaddr_node_addr), 0);
+  /* Listen to all */
+  sf_eb_rx = tsch_schedule_add_slotframe(1, 1);
+    tsch_schedule_add_link(sf_eb_rx,
+    LINK_OPTION_RX,
+    LINK_TYPE_ADVERTISING_ONLY, &tsch_broadcast_address,
+    0, 0);
 }
 /*---------------------------------------------------------------------------*/
-struct orchestra_rule eb_per_time_source = {
+struct orchestra_rule eb_per_time_source_listen_all = {
   init,
-  new_time_source,
+  NULL,
   select_packet,
   NULL,
   NULL,
