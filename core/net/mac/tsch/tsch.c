@@ -372,6 +372,7 @@ tsch_rx_process_pending()
       /* Copy to packetbuf for processing */
       packetbuf_copyfrom(current_input->payload, current_input->len);
       packetbuf_set_attr(PACKETBUF_ATTR_RSSI, current_input->rssi);
+      packetbuf_set_attr(PACKETBUF_ATTR_CHANNEL, current_input->channel);
     }
 
     /* Remove input from ringbuf */
@@ -572,10 +573,6 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
     if(n != NULL) {
       tsch_queue_update_time_source((linkaddr_t *)&frame.src_addr);
 
-#ifdef TSCH_CALLBACK_JOINING_NETWORK
-      TSCH_CALLBACK_JOINING_NETWORK();
-#endif
-
       /* Set PANID */
       frame802154_set_pan_id(frame.src_pid);
 
@@ -586,8 +583,12 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
       tsch_is_associated = 1;
       tsch_is_pan_secured = frame.fcf.security_enabled;
 
-      /* Association done, schedule keepalive messages */
+      /* Start sending keep-alives now that tsch_is_associated is set */
       tsch_schedule_keepalive();
+
+#ifdef TSCH_CALLBACK_JOINING_NETWORK
+      TSCH_CALLBACK_JOINING_NETWORK();
+#endif
 
       PRINTF("TSCH: association done, sec %u, PAN ID %x, asn-%x.%lx, jp %u, timeslot id %u, hopping id %u, slotframe len %u with %u links, from ",
              tsch_is_pan_secured,
@@ -938,7 +939,10 @@ send_packet(mac_callback_t sent, void *ptr)
     /* Enqueue packet */
     p = tsch_queue_add_packet(addr, sent, ptr);
     if(p == NULL) {
-      PRINTF("TSCH:! can't send packet !tsch_queue_add_packet\n");
+      PRINTF("TSCH:! can't send packet to %u with seqno %u, queue %u %u\n",
+          TSCH_LOG_ID_FROM_LINKADDR(addr), tsch_packet_seqno,
+          packet_count_before,
+          tsch_queue_packet_count(addr));
       ret = MAC_TX_ERR;
     } else {
       p->header_len = hdr_len;
@@ -1024,6 +1028,11 @@ turn_on(void)
 static int
 turn_off(int keep_radio_on)
 {
+  if(keep_radio_on) {
+    NETSTACK_RADIO.on();
+  } else {
+    NETSTACK_RADIO.off();
+  }
   return 1;
 }
 /*---------------------------------------------------------------------------*/
