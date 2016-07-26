@@ -37,6 +37,7 @@
  *         Adam Dunkels <adam@sics.se>
  */
 
+#include "contiki-conf.h"
 #include "net/mac/phase.h"
 #include "net/packetbuf.h"
 #include "sys/clock.h"

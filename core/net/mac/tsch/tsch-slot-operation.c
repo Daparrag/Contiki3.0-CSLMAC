@@ -889,6 +889,9 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
               log->rx.is_data = frame.fcf.frame_type == FRAME802154_DATAFRAME;
               log->rx.sec_level = frame.aux_hdr.security_control.security_level;
               log->rx.estimated_drift = estimated_drift;
+#if WITH_RSSI_LOG
+              log->rx.rssi = current_input->rssi;
+#endif
             );
           }
 

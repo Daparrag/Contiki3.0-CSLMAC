@@ -81,10 +81,14 @@
 /* Our absolute index in the id_mac table */
 uint16_t node_index = 0xffff;
 
+typedef union {
+  unsigned char u8[8];
+} linkaddr8_t;
+
 /* ID<->MAC address mapping */
 struct id_mac {
   uint16_t id;
-  linkaddr_t mac;
+  linkaddr8_t mac;
 };
 
 /* List of ID<->MAC mapping used for different deployments */
@@ -982,6 +986,7 @@ static const struct id_mac id_mac_list[] = {
 
 
 #endif
+
   { 0, { { 0 } } }
 };
 
@@ -1053,7 +1058,7 @@ node_index_from_linkaddr(const linkaddr_t *addr)
   const struct id_mac *curr = id_mac_list;
   while(curr->id != 0) {
     /* Assume network-wide unique 16-bit MAC addresses */
-    if(curr->mac.u8[6] == addr->u8[6] && curr->mac.u8[7] == addr->u8[7]) {
+    if(curr->mac.u8[6] == addr->u8[LINKADDR_SIZE-2] && curr->mac.u8[7] == addr->u8[LINKADDR_SIZE-1]) {
       return nodex_index_map(curr - id_mac_list);
     }
     curr++;
@@ -1069,7 +1074,7 @@ node_id_from_linkaddr(const linkaddr_t *addr)
   if(addr == NULL) {
     return 0;
   } else {
-    return addr->u8[LINKADDR_SIZE-1];
+    return addr->u8[0];
   }
 #else /* IN_COOJA */
   if(addr == NULL) {
@@ -1078,7 +1083,7 @@ node_id_from_linkaddr(const linkaddr_t *addr)
   const struct id_mac *curr = id_mac_list;
   while(curr->id != 0) {
     /* Assume network-wide unique 16-bit MAC addresses */
-    if(curr->mac.u8[6] == addr->u8[6] && curr->mac.u8[7] == addr->u8[7]) {
+    if(curr->mac.u8[6] == addr->u8[LINKADDR_SIZE-2] && curr->mac.u8[7] == addr->u8[LINKADDR_SIZE-1]) {
       return curr->id;
     }
     curr++;
@@ -1124,7 +1129,7 @@ set_linkaddr_from_id(linkaddr_t *lladdr, uint16_t id)
   const struct id_mac *curr = id_mac_list;
   while(curr->id != 0) {
     if(curr->id == id) {
-      linkaddr_copy(lladdr, &curr->mac);
+      linkaddr_copy(lladdr, (linkaddr_t*)&curr->mac);
       return;
     }
     curr++;

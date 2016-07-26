@@ -42,6 +42,7 @@
  * @{
  */
 
+#include "contiki-conf.h"
 #include "net/rime/collect.h"
 #include "net/rime/collect-link-estimate.h"
 

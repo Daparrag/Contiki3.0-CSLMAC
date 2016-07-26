@@ -45,6 +45,7 @@
 #include <stdio.h>
 #include <stddef.h> /* for offsetof */
 
+#include "contiki-conf.h"
 #include "net/rime/rime.h"
 #include "net/rime/rudolph1.h"
 #include "cfs/cfs.h"

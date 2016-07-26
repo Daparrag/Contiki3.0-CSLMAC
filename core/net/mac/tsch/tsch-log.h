@@ -96,6 +96,9 @@ struct tsch_log_t {
       uint8_t drift_used;
     } tx;
     struct {
+#if WITH_RSSI_LOG
+      int rssi;
+#endif
       int src;
       int drift;
       int estimated_drift;
