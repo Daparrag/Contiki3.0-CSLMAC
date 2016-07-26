@@ -198,4 +198,11 @@
 #define TSCH_CHANNEL_SCAN_DURATION CLOCK_SECOND
 #endif
 
+/* Use EBs for time sync? */
+#ifdef TSCH_CONF_SYNC_ON_EB
+#define TSCH_SYNC_ON_EB TSCH_CONF_SYNC_ON_EB
+#else
+#define TSCH_SYNC_ON_EB 1
+#endif
+
 #endif /* __TSCH_CONF_H__ */

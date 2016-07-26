@@ -865,7 +865,8 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
 
             /* If the sender is a time source, proceed to clock drift compensation */
             n = tsch_queue_get_nbr(&source_address);
-            if(n != NULL && n->is_time_source) {
+            if(n != NULL && n->is_time_source &&
+                (TSCH_SYNC_ON_EB || frame.fcf.frame_type != FRAME802154_BEACONFRAME)) {
               int32_t since_last_timesync = ASN_DIFF(current_asn, last_sync_asn);
               /* Keep track of last sync time */
               last_sync_asn = current_asn;
