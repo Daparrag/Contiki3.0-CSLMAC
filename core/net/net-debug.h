@@ -42,6 +42,7 @@
 #ifndef NET_DEBUG_H
 #define NET_DEBUG_H
 
+#include "contiki-conf.h"
 #include "net/ip/uip.h"
 #include "net/linkaddr.h"
 #include <stdio.h>
@@ -77,7 +78,11 @@ void net_debug_lladdr_print(const uip_lladdr_t *addr);
 #else
 #define PRINTF(...) printf(__VA_ARGS__)
 #endif
+#if WITH_LOG
+#define PRINTLLADDR(lladdr) printf("%u", LOG_ID_FROM_LINKADDR(lladdr));
+#else
 #define PRINTLLADDR(lladdr) net_debug_lladdr_print(lladdr)
+#endif /* WITH_LOG */
 #else
 #define PRINTF(...)
 #define PRINTLLADDR(lladdr)

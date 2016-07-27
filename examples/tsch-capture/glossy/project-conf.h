@@ -110,6 +110,9 @@
 #undef TSCH_LOG_CONF_ID_FROM_LINKADDR
 #define TSCH_LOG_CONF_ID_FROM_LINKADDR(addr) ((addr) ? (addr)->u8[LINKADDR_SIZE - 2] : 0)
 
+#undef WITH_RSSI_LOG
+#define WITH_RSSI_LOG 1
+
 #define WITH_DEPLOYMENT 1
 #define WITH_LOG 1
 #if WITH_LOG

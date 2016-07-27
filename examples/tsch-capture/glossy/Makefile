@@ -7,7 +7,8 @@ PROJECT_SOURCEFILES += node-id.c \
   orchestra-rule-eb-common.c \
   orchestra-rule-eb-common-txonly.c \
   orchestra-rule-eb-per-time-source-listen-all.c \
-  orchestra-rule-unicast-per-time-source.c
+  orchestra-rule-unicast-per-time-source.c \
+  orchestra-rule-eb-per-time-source-txonly.c
 
 DEPLOYMENT_COOJA=1
 DEPLOYMENT_MOTES=2

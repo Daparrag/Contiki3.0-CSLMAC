@@ -994,8 +994,8 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
         (100 * TSCH_CLOCK_TO_SLOTS(TSCH_DESYNC_THRESHOLD / 100, tsch_timing[tsch_ts_timeslot_length])))) {
       TSCH_LOG_ADD(tsch_log_message,
             snprintf(log->message, sizeof(log->message),
-                "! leaving the network, last sync %u",
-                          (unsigned)ASN_DIFF(current_asn, last_sync_asn));
+                "! leaving the network, last sync asn-%x.%lx",
+                          last_sync_asn.ms1b, last_sync_asn.ls4b);
       );
       last_timesource_neighbor = NULL;
       tsch_disassociate();

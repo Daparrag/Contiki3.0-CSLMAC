@@ -590,16 +590,15 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
       TSCH_CALLBACK_JOINING_NETWORK();
 #endif
 
-      PRINTF("TSCH: association done, sec %u, PAN ID %x, asn-%x.%lx, jp %u, timeslot id %u, hopping id %u, slotframe len %u with %u links, from ",
+      PRINTF("TSCH: association done, sec %u, PAN ID %x, asn-%x.%lx, jp %u, timeslot id %u, hopping id %u, slotframe len %u with %u links, from %u\n",
              tsch_is_pan_secured,
              frame.src_pid,
              current_asn.ms1b, current_asn.ls4b, tsch_join_priority,
              ies.ie_tsch_timeslot_id,
              ies.ie_channel_hopping_sequence_id,
              ies.ie_tsch_slotframe_and_link.slotframe_size,
-             ies.ie_tsch_slotframe_and_link.num_links);
-      PRINTLLADDR((const uip_lladdr_t *)&frame.src_addr);
-      PRINTF("\n");
+             ies.ie_tsch_slotframe_and_link.num_links,
+             TSCH_LOG_ID_FROM_LINKADDR((const uip_lladdr_t *)&frame.src_addr));
 
       return 1;
     }

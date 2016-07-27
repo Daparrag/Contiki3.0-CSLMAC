@@ -57,6 +57,7 @@ struct orchestra_rule unicast_per_neighbor;
 struct orchestra_rule eb_common;
 struct orchestra_rule eb_common_txonly;
 struct orchestra_rule eb_per_time_source_listen_all;
+struct orchestra_rule eb_per_time_source_txonly;
 struct orchestra_rule unicast_per_time_source;
 
 extern linkaddr_t orchestra_parent_linkaddr;
