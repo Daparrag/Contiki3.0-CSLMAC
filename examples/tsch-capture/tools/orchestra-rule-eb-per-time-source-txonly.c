@@ -43,7 +43,6 @@
 static uint16_t slotframe_handle = 0;
 static uint16_t channel_offset = 0;
 static struct tsch_slotframe *sf_eb;
-static struct tsch_slotframe *sf_eb_rx;
 
 /*---------------------------------------------------------------------------*/
 static uint16_t

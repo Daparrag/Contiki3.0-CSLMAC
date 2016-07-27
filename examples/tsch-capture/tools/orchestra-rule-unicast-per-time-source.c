@@ -70,7 +70,6 @@ new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new
   uint16_t old_ts = old != NULL ? get_node_timeslot(&old->addr) : 0xffff;
   uint16_t new_ts = new != NULL ? get_node_timeslot(&new->addr) : 0xffff;
 
-  printf("Orchestra schedule new ts %p %p  %u %u\n", old, new, old_ts, new_ts);
   if(new_ts == old_ts) {
     return;
   }

@@ -89,7 +89,7 @@
 #define MAX_NODES 66
 #else
 #define ROOT_ID 1
-#define MAX_NODES 4
+#define MAX_NODES 10
 #endif
 
 #endif /* DEPLOYMENT_DEF_H */
