@@ -246,6 +246,10 @@ keepalive_packet_sent(void *ptr, int status, int transmissions)
 #endif
   PRINTF("TSCH: KA sent to %u, st %d-%d\n",
          TSCH_LOG_ID_FROM_LINKADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER)), status, transmissions);
+  if(status != MAC_TX_OK) {
+    /* Reset keepalive timeout (send sooner) */
+    tsch_set_ka_timeout(TSCH_KEEPALIVE_TIMEOUT);
+  }
   tsch_schedule_keepalive();
 }
 /*---------------------------------------------------------------------------*/
