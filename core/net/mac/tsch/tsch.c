@@ -45,6 +45,7 @@
 #include "net/netstack.h"
 #include "net/packetbuf.h"
 #include "net/queuebuf.h"
+#include "net/link-stats.h"
 #include "net/nbr-table.h"
 #include "net/mac/framer-802154.h"
 #include "net/mac/tsch/tsch.h"
@@ -73,7 +74,10 @@
 #if NETSTACK_CONF_WITH_IPV6
 void uip_ds6_link_neighbor_callback(int status, int numtx);
 #define TSCH_LINK_NEIGHBOR_CALLBACK(dest, status, num) uip_ds6_link_neighbor_callback(status, num)
+#else /* NETSTACK_CONF_WITH_IPV6 */
+#define TSCH_LINK_NEIGHBOR_CALLBACK(dest, status, num) link_stats_packet_sent(dest, status, num)
 #endif /* NETSTACK_CONF_WITH_IPV6 */
+
 #endif /* TSCH_LINK_NEIGHBOR_CALLBACK */
 
 /* 802.15.4 duplicate frame detection */
@@ -95,9 +99,7 @@ static struct seqno received_seqnos[MAX_SEQNOS];
 /* Let TSCH select a time source with no help of an upper layer.
  * We do so using statistics from incoming EBs */
 #if TSCH_AUTOSELECT_TIME_SOURCE
-int best_neighbor_eb_count;
 struct eb_stat {
-  int rx_count;
   int jp;
 };
 NBR_TABLE(struct eb_stat, eb_stats);
@@ -227,7 +229,6 @@ tsch_reset(void)
   TSCH_CALLBACK_LEAVING_NETWORK();
 #endif
 #if TSCH_AUTOSELECT_TIME_SOURCE
-  best_neighbor_eb_count = 0;
   nbr_table_register(eb_stats, NULL);
   tsch_set_eb_period(TSCH_EB_PERIOD);
 #endif
@@ -296,16 +297,16 @@ eb_input(struct input_packet *current_input)
         stat = (struct eb_stat *)nbr_table_add_lladdr(eb_stats, (linkaddr_t *)&frame.src_addr, NBR_TABLE_REASON_MAC, NULL);
       }
       if(stat != NULL) {
-        stat->rx_count++;
         stat->jp = eb_ies.ie_join_priority;
-        best_neighbor_eb_count = MAX(best_neighbor_eb_count, stat->rx_count);
       }
       /* Select best time source */
       struct eb_stat *best_stat = NULL;
       stat = nbr_table_head(eb_stats);
       while(stat != NULL) {
+        const linkaddr_t *lladdr = nbr_table_get_lladdr(eb_stats, stat);
+        const struct link_stats *ls = link_stats_from_lladdr(lladdr);
         /* Is neighbor eligible as a time source? */
-        if(stat->rx_count > best_neighbor_eb_count / 2) {
+        if(!(link_stats_is_fresh(ls) && ls->etx > (3 * LINK_STATS_ETX_DIVISOR))) {
           if(best_stat == NULL ||
              stat->jp < best_stat->jp) {
             best_stat = stat;
