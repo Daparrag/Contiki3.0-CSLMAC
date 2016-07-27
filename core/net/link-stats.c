@@ -144,11 +144,14 @@ link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
   if(stats == NULL) {
     /* Add the neighbor */
     stats = nbr_table_add_lladdr(link_stats, lladdr, NBR_TABLE_REASON_LINK_STATS, NULL);
-    if(stats != NULL) {
-      stats->etx = LINK_STATS_INIT_ETX(stats);
-    } else {
+    if(stats == NULL) {
       return; /* No space left, return */
     }
+  }
+
+  if(stats->etx == 0) {
+    /* Initialize ETX */
+    stats->etx = LINK_STATS_INIT_ETX(stats);
   }
 
   /* Update last timestamp and freshness */
@@ -176,17 +179,20 @@ link_stats_input_callback(const linkaddr_t *lladdr)
   if(stats == NULL) {
     /* Add the neighbor */
     stats = nbr_table_add_lladdr(link_stats, lladdr, NBR_TABLE_REASON_LINK_STATS, NULL);
-    if(stats != NULL) {
-      /* Initialize */
-      stats->rssi = packet_rssi;
-      stats->etx = LINK_STATS_INIT_ETX(stats);
+    if(stats == NULL) {
+      return; /* No space left, return */
     }
-    return;
   }
 
-  /* Update RSSI EWMA */
-  stats->rssi = ((int32_t)stats->rssi * (EWMA_SCALE - EWMA_ALPHA) +
-      (int32_t)packet_rssi * EWMA_ALPHA) / EWMA_SCALE;
+  if(stats->etx == 0) {
+    /* Initialize */
+    stats->rssi = packet_rssi;
+    stats->etx = LINK_STATS_INIT_ETX(stats);
+  } else {
+    /* Update RSSI EWMA */
+    stats->rssi = ((int32_t)stats->rssi * (EWMA_SCALE - EWMA_ALPHA) +
+        (int32_t)packet_rssi * EWMA_ALPHA) / EWMA_SCALE;
+  }
 }
 /*---------------------------------------------------------------------------*/
 /* Periodic timer called every FRESHNESS_HALF_LIFE minutes */
