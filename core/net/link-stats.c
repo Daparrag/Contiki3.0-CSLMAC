@@ -154,10 +154,6 @@ link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
     stats->etx = LINK_STATS_INIT_ETX(stats);
   }
 
-  /* Update last timestamp and freshness */
-  stats->last_tx_time = clock_time();
-  stats->freshness = MIN(stats->freshness + numtx, FRESHNESS_MAX);
-
   /* ETX used for this update */
   packet_etx = ((status == MAC_TX_NOACK) ? ETX_NOACK_PENALTY : numtx) * ETX_DIVISOR;
   /* ETX alpha used for this update */
@@ -166,6 +162,10 @@ link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
   /* Compute EWMA and update ETX */
   stats->etx = ((uint32_t)stats->etx * (EWMA_SCALE - ewma_alpha) +
       (uint32_t)packet_etx * ewma_alpha) / EWMA_SCALE;
+
+  /* Update last timestamp and freshness */
+  stats->last_tx_time = clock_time();
+  stats->freshness = MIN(stats->freshness + numtx, FRESHNESS_MAX);
 }
 /*---------------------------------------------------------------------------*/
 /* Packet input callback. Updates statistics for receptions on a given link */
