@@ -174,12 +174,12 @@ void tsch_queue_free_unused_neighbors(void);
 /* Is the neighbor queue empty? */
 int tsch_queue_is_empty(const struct tsch_neighbor *n);
 /* Returns the first packet from a neighbor queue */
-struct tsch_packet *tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *link);
+struct tsch_packet *tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, const struct tsch_link *link, int check_backoff);
 /* Returns the head packet from a neighbor queue (from neighbor address) */
-struct tsch_packet *tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, struct tsch_link *link);
+struct tsch_packet *tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, const struct tsch_link *link);
 /* Returns the head packet of any neighbor queue with zero backoff counter.
  * Writes pointer to the neighbor in *n */
-struct tsch_packet *tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, struct tsch_link *link);
+struct tsch_packet *tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, const struct tsch_link *link);
 /* May the neighbor transmit over a share link? */
 int tsch_queue_backoff_expired(const struct tsch_neighbor *n);
 /* Reset neighbor backoff */
@@ -187,7 +187,7 @@ void tsch_queue_backoff_reset(struct tsch_neighbor *n);
 /* Increment backoff exponent, pick a new window */
 void tsch_queue_backoff_inc(struct tsch_neighbor *n);
 /* Decrement backoff window for all queues directed at dest_addr */
-void tsch_queue_update_all_backoff_windows(const linkaddr_t *dest_addr);
+void tsch_queue_update_all_backoff_windows(const struct tsch_link *link);
 /* Initialize TSCH queue module */
 void tsch_queue_init(void);
 

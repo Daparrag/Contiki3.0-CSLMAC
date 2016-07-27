@@ -354,14 +354,14 @@ tsch_queue_is_empty(const struct tsch_neighbor *n)
 /*---------------------------------------------------------------------------*/
 /* Returns the first packet from a neighbor queue */
 struct tsch_packet *
-tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *link)
+tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, const struct tsch_link *link, int check_backoff)
 {
   if(!tsch_is_locked()) {
     int is_shared_link = link != NULL && link->link_options & LINK_OPTION_SHARED;
     if(n != NULL) {
       int16_t get_index = ringbufindex_peek_get(&n->tx_ringbuf);
       if(get_index != -1 &&
-          !(is_shared_link && !tsch_queue_backoff_expired(n))) {    /* If this is a shared link,
+          !(check_backoff && is_shared_link && !tsch_queue_backoff_expired(n))) {    /* If this is a shared link,
                                                                     make sure the backoff has expired */
 #if TSCH_WITH_LINK_SELECTOR
         int packet_attr_slotframe = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_SLOTFRAME);
@@ -382,10 +382,10 @@ tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *l
 /*---------------------------------------------------------------------------*/
 /* Returns the head packet from a neighbor queue (from neighbor address) */
 struct tsch_packet *
-tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, struct tsch_link *link)
+tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, const struct tsch_link *link)
 {
   if(!tsch_is_locked()) {
-    return tsch_queue_get_packet_for_nbr(tsch_queue_get_nbr(addr), link);
+    return tsch_queue_get_packet_for_nbr(tsch_queue_get_nbr(addr), link, 1);
   }
   return NULL;
 }
@@ -393,7 +393,7 @@ tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, struct tsch_link *li
 /* Returns the head packet of any neighbor queue with zero backoff counter.
  * Writes pointer to the neighbor in *n */
 struct tsch_packet *
-tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, struct tsch_link *link)
+tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, const struct tsch_link *link)
 {
   if(!tsch_is_locked()) {
     struct tsch_neighbor *curr_nbr = list_head(neighbor_list);
@@ -401,7 +401,7 @@ tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, struct tsch_link
     while(curr_nbr != NULL) {
       if(!curr_nbr->is_broadcast && curr_nbr->tx_links_count == 0) {
         /* Only look up for non-broadcast neighbors we do not have a tx link to */
-        p = tsch_queue_get_packet_for_nbr(curr_nbr, link);
+        p = tsch_queue_get_packet_for_nbr(curr_nbr, link, 1);
         if(p != NULL) {
           if(n != NULL) {
             *n = curr_nbr;
@@ -447,16 +447,23 @@ tsch_queue_backoff_inc(struct tsch_neighbor *n)
 /*---------------------------------------------------------------------------*/
 /* Decrement backoff window for all queues directed at dest_addr */
 void
-tsch_queue_update_all_backoff_windows(const linkaddr_t *dest_addr)
+tsch_queue_update_all_backoff_windows(const struct tsch_link *link)
 {
   if(!tsch_is_locked()) {
+    const linkaddr_t *dest_addr = link != NULL ? &link->addr : NULL;
     int is_broadcast = linkaddr_cmp(dest_addr, &tsch_broadcast_address);
     struct tsch_neighbor *n = list_head(neighbor_list);
     while(n != NULL) {
       if(n->backoff_window != 0 /* Is the queue in backoff state? */
          && ((n->tx_links_count == 0 && is_broadcast)
              || (n->tx_links_count > 0 && linkaddr_cmp(dest_addr, &n->addr)))) {
+#if TSCH_WITH_LINK_SELECTOR
+        if(tsch_queue_get_packet_for_nbr(n, link, 0) != NULL) {
+          n->backoff_window--;
+        }
+#else /* TSCH_WITH_LINK_SELECTOR */
         n->backoff_window--;
+#endif /* TSCH_WITH_LINK_SELECTOR */
       }
       n = list_item_next(n);
     }

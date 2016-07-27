@@ -320,14 +320,14 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
     if(link->link_type == LINK_TYPE_ADVERTISING || link->link_type == LINK_TYPE_ADVERTISING_ONLY) {
       /* fetch EB packets */
       n = n_eb;
-      p = tsch_queue_get_packet_for_nbr(n, link);
+      p = tsch_queue_get_packet_for_nbr(n, link, 1);
     }
     if(link->link_type != LINK_TYPE_ADVERTISING_ONLY) {
       /* NORMAL link or no EB to send, pick a data packet */
       if(p == NULL) {
         /* Get neighbor queue associated to the link and get packet from it */
         n = tsch_queue_get_nbr(&link->addr);
-        p = tsch_queue_get_packet_for_nbr(n, link);
+        p = tsch_queue_get_packet_for_nbr(n, link, 1);
         /* if it is a broadcast slot and there were no broadcast packets, pick any unicast packet */
         if(p == NULL && n == n_broadcast) {
           p = tsch_queue_get_unicast_packet_for_any(&n, link);
@@ -957,6 +957,12 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
        * nothing, switch to the backup link (has Rx flag) if any. */
       if(current_packet == NULL && backup_link != NULL) {
         if(!(current_link->link_options & LINK_OPTION_RX) || (current_link->slotframe_handle > backup_link->slotframe_handle)) {
+          if(current_link->link_options & LINK_OPTION_TX
+              && current_link->link_options & LINK_OPTION_SHARED) {
+            /* Decrement the backoff window for all neighbors able to transmit over this Tx, Shared link,
+             * before switching to the backup link */
+            tsch_queue_update_all_backoff_windows((const struct tsch_link *)current_link);
+          }
           current_link = backup_link;
           current_packet = get_packet_and_neighbor_for_link(current_link, &current_neighbor);
         }
@@ -1013,7 +1019,7 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
             && current_link->link_options & LINK_OPTION_SHARED) {
           /* Decrement the backoff window for all neighbors able to transmit over
            * this Tx, Shared link. */
-          tsch_queue_update_all_backoff_windows(&current_link->addr);
+          tsch_queue_update_all_backoff_windows((const struct tsch_link *)current_link);
         }
 
         /* Get next active link */
