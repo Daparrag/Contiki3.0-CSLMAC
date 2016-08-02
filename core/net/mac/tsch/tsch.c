@@ -234,6 +234,45 @@ tsch_reset(void)
 #endif
 }
 
+#if TSCH_AUTOSELECT_TIME_SOURCE
+/*---------------------------------------------------------------------------*/
+static void
+autoselect_time_source() {
+  struct eb_stat *best = NULL;
+  int best_is_known = 0;
+  struct eb_stat *stat;
+
+  for(stat = nbr_table_head(eb_stats); stat != NULL; stat = nbr_table_next(eb_stats, stat)) {
+    const linkaddr_t *lladdr = nbr_table_get_lladdr(eb_stats, stat);
+    const struct link_stats *ls = link_stats_from_lladdr(lladdr);
+    int curr_is_known = ls != NULL && ls->freshness > 0;
+
+    if(curr_is_known && ls->etx > (3 * LINK_STATS_ETX_DIVISOR)) {
+      continue;
+    }
+
+    /* Is neighbor eligible as a time source? */
+    if(best == NULL || curr_is_known > best_is_known) {
+      best = stat;
+      best_is_known = curr_is_known;
+    }
+
+    if(best_is_known == curr_is_known) {
+      if(stat->jp < best->jp) {
+        best = stat;
+        best_is_known = curr_is_known;
+      }
+    }
+  }
+
+  /* Update time source */
+  if(best != NULL) {
+    tsch_queue_update_time_source(nbr_table_get_lladdr(eb_stats, best));
+    tsch_join_priority = best->jp + 1;
+  }
+}
+#endif /* TSCH_AUTOSELECT_TIME_SOURCE */
+
 /* TSCH keep-alive functions */
 
 /*---------------------------------------------------------------------------*/
@@ -258,7 +297,13 @@ static void
 keepalive_send()
 {
   if(tsch_is_associated) {
-    struct tsch_neighbor *n = tsch_queue_get_time_source();
+    struct tsch_neighbor *n;
+
+#if TSCH_AUTOSELECT_TIME_SOURCE
+    autoselect_time_source();
+#endif
+
+    n = tsch_queue_get_time_source();
     /* Simply send an empty packet */
     packetbuf_clear();
     packetbuf_set_addr(PACKETBUF_ADDR_RECEIVER, &n->addr);
@@ -295,7 +340,7 @@ eb_input(struct input_packet *current_input)
 
 #if TSCH_AUTOSELECT_TIME_SOURCE
     if(!tsch_is_coordinator) {
-      /* Maintain EB received counter for every neighbor */
+      /* Add neighbors as soon as we have received an EB */
       struct eb_stat *stat = (struct eb_stat *)nbr_table_get_from_lladdr(eb_stats, (linkaddr_t *)&frame.src_addr);
       if(stat == NULL) {
         stat = (struct eb_stat *)nbr_table_add_lladdr(eb_stats, (linkaddr_t *)&frame.src_addr, NBR_TABLE_REASON_MAC, NULL);
@@ -304,25 +349,7 @@ eb_input(struct input_packet *current_input)
         stat->jp = eb_ies.ie_join_priority;
       }
       /* Select best time source */
-      struct eb_stat *best_stat = NULL;
-      stat = nbr_table_head(eb_stats);
-      while(stat != NULL) {
-        const linkaddr_t *lladdr = nbr_table_get_lladdr(eb_stats, stat);
-        const struct link_stats *ls = link_stats_from_lladdr(lladdr);
-        /* Is neighbor eligible as a time source? */
-        if(!(link_stats_is_fresh(ls) && ls->etx > (3 * LINK_STATS_ETX_DIVISOR))) {
-          if(best_stat == NULL ||
-             stat->jp < best_stat->jp) {
-            best_stat = stat;
-          }
-        }
-        stat = nbr_table_next(eb_stats, stat);
-      }
-      /* Update time source */
-      if(best_stat != NULL) {
-        tsch_queue_update_time_source(nbr_table_get_lladdr(eb_stats, best_stat));
-        tsch_join_priority = best_stat->jp + 1;
-      }
+      autoselect_time_source();
     }
 #endif
 
