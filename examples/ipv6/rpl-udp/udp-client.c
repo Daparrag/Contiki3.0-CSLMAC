@@ -34,6 +34,7 @@
 #include "net/ipv6/uip-ds6.h"
 #include "net/ip/uip-udp-packet.h"
 #include "sys/ctimer.h"
+#include "sys/node-id.h"
 #ifdef WITH_COMPOWER
 #include "powertrace.h"
 #endif
@@ -107,8 +108,8 @@ send_packet(void *ptr)
 #endif /* SERVER_REPLY */
 
   seq_id++;
-  PRINTF("DATA send to %d 'Hello %d'\n",
-         server_ipaddr.u8[sizeof(server_ipaddr.u8) - 1], seq_id);
+  PRINTF("DATA send to %d from %d 'Hello %d and packet id %d'\n",
+         server_ipaddr.u8[sizeof(server_ipaddr.u8) - 1], node_id ,seq_id, seq_id);
   sprintf(buf, "Hello %d from the client", seq_id);
   uip_udp_packet_sendto(client_conn, buf, strlen(buf),
                         &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));

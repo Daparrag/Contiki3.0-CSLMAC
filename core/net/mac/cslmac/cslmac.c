@@ -1054,14 +1054,33 @@ static int eack_len;
 /*-------------------------------------------SLEEP PERIOD-------------------------------------------------------------------------*/
         //clock_time_t timer_on_pack= (CLOCK_SECOND * 2 * rx_ies.ie_rz_time)/RTIMER_ARCH_SECOND;
 				//ctimer_set(&ct2,timer_on_pack, on_for_packet, NULL);
-        ctimer_set(&ct2,rx_ies.ie_rz_time/240, on_for_packet, NULL);
+        ctimer_set(&ct2,rx_ies.ie_rz_time/240 , on_for_packet, NULL);
 				//PRINTF("cslmac: Wakeup frame received correctlly (%i), (%i)\n",(rx_ies.ie_rz_time, now + rx_ies.ie_rz_time - 3 * DEFAULT_ON_TIME / 2));
-				
-		}				
+		}else{
+
+        if((rx_wakeup_len = tsch_packet_parse_wake_up(hdr_packet,packetbuf_datalen(),&rx_seqno,&rx_frame,&rx_ies,&rx_hdr_length))<=0){
+                PRINTF("cslmac: probable error parsing the wakeup_frame or isn't a wakeup frame \n");
+                return;
+            }
+
+        if(duplicate_secuence(rx_seqno,packetbuf_addr(PACKETBUF_ADDR_RECEIVER))){
+          PRINTF("Droping a duplicate wakeup_frame with sqno(%u) \n",rx_seqno);
+          packetbuf_clear();
+          powercycle_turn_radio_off();
+          return;
+
+         }else{
+          register_secuence(rx_seqno,packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
+        } 
+
+       waiting_for_packet=0; 
+       ctimer_set(&ct2,(rx_ies.ie_rz_time/240 + (10*DEFAULT_ON_TIME) - RTIMER_GUARD_TIME) , off_for_packet, NULL); 
+
+    }				
 				 
 	}else if (rx_frame_type==0x01){
 
-		
+		int duplicate = 0;
 		
 		if(linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER),
 												&linkaddr_node_addr) ||
@@ -1069,6 +1088,7 @@ static int eack_len;
 								&linkaddr_null)){
 										
 										waiting_for_packet=0;
+                      powercycle_turn_radio_off();
 												/*check if it is a frame for this node*/
 											we_are_receiving_burst = packetbuf_attr(PACKETBUF_ATTR_PENDING);
 											if(we_are_receiving_burst) {
@@ -1081,13 +1101,31 @@ static int eack_len;
 												off();
 												ctimer_stop(&bt);
 											}
+
+
 										if(NETSTACK_FRAMER.parse() >= 0){
+                      /*check for duplicates*/
+                            /* Check for duplicate packet. */
+                      duplicate = mac_sequence_is_duplicate();
+                          if(duplicate) {
+                              /* Drop the packet. */
+                            PRINTF("cslmac: Drop duplicate\n");
+                            powercycle_turn_radio_off();
+                            return;      
+
+                          } else {
+                            mac_sequence_register_seqno();
+                          }
+                        if(!duplicate) {
 												NETSTACK_MAC.input();
 												PRINTF("cslmac: dataframe has been receive data(%u) \n",packetbuf_datalen());
+                        }
 										}else{
 											PRINTF("cslmac: error parsing the dataframe(%u) \n",packetbuf_datalen());
 											return;
 										}
+
+
 																				
 										if(linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER),
 											&linkaddr_node_addr)){
